@@ -211,11 +211,29 @@ function parseSandboxSummary(raw: string): string {
       | {
           stdoutLines?: number;
           stderrLines?: number;
+          stdout?: string;
+          results?: string;
         }
       | undefined;
-    if (d) {
+    if (!d) return "executed";
+    // Bash: line counts
+    if (d.stdoutLines != null || d.stderrLines != null) {
       return `stdout: ${d.stdoutLines ?? 0}, stderr: ${d.stderrLines ?? 0}`;
     }
+    // Workbench: raw stdout text
+    if (d.stdout) {
+      const clean = d.stdout.replace(/[\n\r\t]+/g, " ").trim();
+      const preview = clean.slice(0, 60) || "(empty)";
+      return clean.length > 60 ? `"${preview}..."` : `"${preview}"`;
+    }
+    if (d.results) {
+      const clean = String(d.results)
+        .replace(/[\n\r\t]+/g, " ")
+        .trim()
+        .slice(0, 60);
+      return clean ? `"${clean}..."` : "(empty)";
+    }
+    return "executed";
   } catch {
     /* not parseable */
   }
