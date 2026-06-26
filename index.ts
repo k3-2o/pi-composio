@@ -128,7 +128,7 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
 
 function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
   const clean = valueText.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 80 ? clean.slice(0, 77) + "..." : clean;
+  const preview = clean.length > 60 ? clean.slice(0, 57) + "..." : clean;
   return new Text(
     theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
     0,
@@ -136,24 +136,121 @@ function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Tex
   );
 }
 
-function renderResultLine(toolLabel: string, result: AgentToolResult<Details>, theme: Theme): Text {
-  if (result.details?.error) {
-    return new Text(
-      theme.fg("warning", "⚠️") +
-        " " +
-        theme.fg("dim", toolLabel + " failed — " + result.details.error.replace(/[\n\r\t]+/g, " ")),
-      0,
-      0,
-    );
-  }
-  const raw = result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
-  const text = raw.replace(/[\n\r\t]+/g, " ");
-  const preview = text.length > 100 ? text.slice(0, 97) + "..." : text;
+function renderErrorLine(toolLabel: string, error: string, theme: Theme): Text {
+  const clean = error.replace(/[\n\r\t]+/g, " ");
+  const preview = clean.length > 80 ? clean.slice(0, 77) + "..." : clean;
   return new Text(
-    theme.fg("success", "✓") + " " + theme.fg("dim", toolLabel + " " + preview),
+    theme.fg("error", "\u2717") + " " + theme.fg("dim", toolLabel + " failed — " + preview),
     0,
     0,
   );
+}
+
+function renderSuccessLine(toolLabel: string, stats: string, theme: Theme): Text {
+  return new Text(
+    theme.fg("success", "\u2713") + " " + theme.fg("dim", toolLabel + " " + stats),
+    0,
+    0,
+  );
+}
+
+/** Extract a quick summary from a composio_search JSON response. */
+function parseSearchSummary(raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    const results = r?.data?.results as
+      | Array<{
+          tool_slug?: string;
+          toolkit_connection_statuses?: Record<string, { has_active_connection?: boolean }>;
+        }>
+      | undefined;
+    if (!results?.length) return "0 results";
+    const connectionCounts = new Map<string, boolean>();
+    for (const item of results) {
+      for (const [tk, status] of Object.entries(item.toolkit_connection_statuses ?? {})) {
+        connectionCounts.set(tk, status.has_active_connection === true);
+      }
+      const parts: string[] = [];
+      for (const [tk, connected] of connectionCounts) {
+        parts.push(`${tk} ${connected ? "on" : "off"}`);
+      }
+      return `${results.length} tools \u00b7 ${parts.join(", ")}`;
+    }
+  } catch {
+    /* not parseable */
+  }
+  return "results found";
+}
+
+/** Extract param names from a composio_get_schema JSON response. */
+function parseSchemaSummary(raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    const tools = r?.data?.tools as
+      | Array<{
+          slug?: string;
+          input_schema?: { properties?: Record<string, unknown> };
+        }>
+      | undefined;
+    const t = tools?.[0];
+    if (!t) return "tool not found";
+    const params = Object.keys(t.input_schema?.properties ?? {});
+    const label = t.slug ?? "tool";
+    return `${label} \u00b7 ${params.length} params`;
+  } catch {
+    /* not parseable */
+  }
+  return "schema loaded";
+}
+
+/** Extract a summary from a sandbox response (workbench or bash). */
+function parseSandboxSummary(raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    const d = r?.data as
+      | {
+          stdoutLines?: number;
+          stderrLines?: number;
+        }
+      | undefined;
+    if (d) {
+      return `stdout: ${d.stdoutLines ?? 0}, stderr: ${d.stderrLines ?? 0}`;
+    }
+  } catch {
+    /* not parseable */
+  }
+  return "executed";
+}
+
+/** Extract a summary from an execute response. */
+function parseExecuteSummary(raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    if (r?.error) return `error: ${String(r.error).slice(0, 80)}`;
+    return "executed";
+  } catch {
+    /* not parseable */
+  }
+  return "executed";
+}
+
+/** Extract the raw text from a result for summary parsing. */
+function rawText(result: AgentToolResult<Details>): string {
+  return result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
+}
+
+/** Unified renderResult: error → ✗/red, success → ✓/green with parsed summary. */
+function renderToolResult(
+  toolLabel: string,
+  result: AgentToolResult<Details>,
+  theme: Theme,
+  parse: (raw: string) => string = () => "done",
+): Text {
+  if (result.details?.error) {
+    return renderErrorLine(toolLabel, result.details.error, theme);
+  }
+  const summary = parse(rawText(result));
+  return renderSuccessLine(toolLabel, summary, theme);
 }
 
 // ── Tool definitions ──────────────────────────────────────────────────
@@ -223,7 +320,7 @@ Examples:
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("🔍 Search", result, theme);
+      return renderToolResult("🔍 Search", result, theme, parseSearchSummary);
     },
     async execute(
       _toolCallId: string,
@@ -263,7 +360,7 @@ Example: ["GMAIL_SEND_EMAIL"] shows { to, subject, body } parameters.`,
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("📋 Schema", result, theme);
+      return renderToolResult("📋 Schema", result, theme, parseSchemaSummary);
     },
     async execute(
       _toolCallId: string,
@@ -309,7 +406,7 @@ The tool must have been connected via composio_connect first.`,
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("⚡ Execute", result, theme);
+      return renderToolResult("⚡ Execute", result, theme, parseExecuteSummary);
     },
     async execute(_toolCallId: string, params: ExecuteParams): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
@@ -347,7 +444,7 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("🔗 Connect", result, theme);
+      return renderToolResult("🔗 Connect", result, theme);
     },
     async execute(
       _toolCallId: string,
@@ -389,7 +486,7 @@ Results and variables persist across calls within the same session.`,
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("🖥️ Workbench", result, theme);
+      return renderToolResult("🖥️ Workbench", result, theme, parseSandboxSummary);
     },
     async execute(
       _toolCallId: string,
@@ -431,7 +528,7 @@ The sandbox is scoped to the session and persists state between calls.`,
       _options: { expanded: boolean; isPartial: boolean },
       theme: Theme,
     ) {
-      return renderResultLine("💻 Bash", result, theme);
+      return renderToolResult("💻 Bash", result, theme, parseSandboxSummary);
     },
     async execute(_toolCallId: string, params: CommandParams): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
