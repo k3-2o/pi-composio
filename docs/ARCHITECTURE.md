@@ -171,8 +171,8 @@ This extension provides the **tools layer** (pi can act on services). A separate
 
 ```
 pi-composio/
-├── src/
-│   └── index.ts              # Extension entry point (~460 lines)
+├── 
+│ └── index.ts              # Extension entry point (~460 lines)
 ├── docs/
 │   └── ARCHITECTURE.md        # This document
 ├── package.json               # @composio/core dependency + dev tooling

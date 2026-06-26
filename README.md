@@ -71,7 +71,7 @@ You can also connect apps through [Composio's dashboard](https://app.composio.de
 cp -r pi-composio ~/.pi/agent/extensions/composio/
 
 # Or use it directly with -e
-COMPOSIO_API_KEY=your_key_here pi -e ./src/index.ts
+COMPOSIO_API_KEY=your_key_here pi -e ./index.ts
 ```
 
 ### 4. Set your API key
@@ -150,8 +150,8 @@ make ci         # Full pipeline (check + security)
 
 ```
 pi-composio/
-├── src/
-│   └── index.ts        # Extension entry point (6 tools + session init)
+├── 
+│ └── index.ts        # Extension entry point (6 tools + session init)
 ├── .vscode/
 │   ├── LOOP.md          # Local workflow (not pushed)
 │   ├── SPEC.md           # Specification (not pushed)
