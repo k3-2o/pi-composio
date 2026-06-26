@@ -55,6 +55,12 @@ Once active, go to **Users** in the sidebar → copy your **user ID** (looks lik
 
 ### 3. Install the extension
 
+**Via git:**
+
+```bash
+pi install git:github.com/your-username/pi-composio@v0.1.0
+```
+
 **Via npm** (once published):
 
 ```bash
