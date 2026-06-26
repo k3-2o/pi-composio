@@ -96,20 +96,7 @@ composio/            # In ~/.pi/agent/extensions/
 └── README.md
 ```
 
-## Dependencies
-
-| Package | Role |
-|---|---|
-| `@composio/core` | Composio TypeScript SDK |
-| `@earendil-works/pi-coding-agent` | Extension types (pi-provided) |
-| `@earendil-works/pi-tui` | TUI components (pi-provided) |
-| `typebox` | Tool parameter schemas (pi-provided) |
-
-Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` at runtime.
-
 ---
-
-## Pricing
 
 Composio pricing (as of 2026):
 
