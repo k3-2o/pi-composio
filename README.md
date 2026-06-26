@@ -37,47 +37,49 @@ You: "check my unread gmail"
 3. pi reads the results to you
 ```
 
-Only 6 tool schemas sit in context. Individual app schemas only arrive when the agent explicitly fetches them.
-
 ---
 
 ## Setup
 
-### 1. Get a Composio API key
+### 1. Get an API key
 
-Go to [composio.dev](https://composio.dev) → Sign up → Copy your API key from Settings.
+Go to the [Composio dashboard](https://app.composio.dev) → Sign up → Copy your API key from **Settings**.
 
-The **Totally Free** plan includes 20,000 tool calls/month — plenty for personal use.
+They offer a very generous free tier — 20,000 tool calls/month, plenty for personal use.
 
 ### 2. Connect your apps
 
-```bash
-# Install the Composio CLI
-curl -fsSL https://composio.dev/install | bash
-
-# Sign in and connect apps
-composio login
-composio add gmail    # opens browser → click Allow
-composio add github   # same
-composio add slack    # same
-```
-
-You can also connect apps through [Composio's dashboard](https://app.composio.dev).
+Open [Composio's dashboard](https://app.composio.dev) → **Apps** → click any app (Gmail, GitHub, Slack, etc.) → **Connect** → authorize in the browser. Done.
 
 ### 3. Install the extension
 
+**Via git** (adds to settings.json for auto-install):
+
+```json
+{
+  "packages": [
+    "git:github.com/your-username/pi-composio@v0.1.0"
+  ]
+}
+```
+
+Run `pi install` after adding to settings, or use the CLI directly:
+
 ```bash
-# Clone directly to pi's extension directory:
+pi install git:github.com/your-username/pi-composio@v0.1.0
+```
+
+**Via npm** (once published):
+
+```bash
+pi install npm:@scope/pi-composio
+```
+
+**Manual clone** (if you prefer keeping the source around):
+
+```bash
 git clone https://github.com/your-username/pi-composio ~/.pi/agent/extensions/composio/
 cd ~/.pi/agent/extensions/composio && npm install
-
-# Or add to settings.json for auto-install:
-# ~/.pi/agent/settings.json
-# {
-#   "packages": [
-#     "git:github.com/your-username/pi-composio@v0.1.0"
-#   ]
-# }
 ```
 
 ### 4. Set your API key
@@ -94,78 +96,25 @@ Or set an environment variable:
 export COMPOSIO_API_KEY=your_key_here
 ```
 
-Resolution: `config.json` (extension dir) → `COMPOSIO_API_KEY` env var.
+Resolution: `config.json` → `COMPOSIO_API_KEY` env var.
 
-### 5. Start using it
+### 5. Use it
 
 ```bash
 pi
-/reload
+/reload   # if pi was already running
 # "send an email to myself saying the extension is working"
 ```
 
 ---
 
-## Architecture
+## Project structure
 
 ```
-Pi Agent        pi-composio Extension          Composio Backend      SaaS APIs
- │                      │                            │                  │
- │  "send email..."     │                            │                  │
- │── composio_search ──►│                            │                  │
- │                      │── POST execute_meta ──────►│                  │
- │                      │◁── [GMAIL_SEND_EMAIL] ────│                  │
- │                      │                            │                  │
- │── composio_execute ─►│                            │                  │
- │                      │── POST execute ──────────►│                  │
- │                      │                            │── Gmail API ───►│
- │                      │                            │◁── response ───│
- │                      │◁── result ────────────────│                  │
- │◁── "Email sent!" ───│                            │                  │
-```
-
-### Design decisions
-
-| Decision | Choice | Why |
-|---|---|---|
-| Integration mode | **SDK** (`@composio/core`) | Pi doesn't do MCP. SDK is TypeScript-native, no JSON-RPC translation layer. |
-| Tool pattern | **6 meta tools** | Composio's native architecture. Token-efficient (~1,200 tokens for all schemas vs 10K+ for 50 app tools). |
-| Meta tool execution | **REST API** (`execute_meta`) | Direct control, no provider wrapping needed. |
-| App tool execution | **SDK** (`executeSessionTool`) | Handles auth injection and schema translation. |
-| Session init | **`composio.create()`** | Creates a server-side tool router session with connected accounts. |
-| Auth | **Environment variable** | `COMPOSIO_API_KEY` in env or pi config. Simple, no extra auth prompts. |
-
----
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run checks
-make fmt        # Format with Prettier
-make lint       # Lint with ESLint
-make typecheck  # TypeScript type check
-make check      # All of the above
-make security   # npm audit
-make ci         # Full pipeline (check + security)
-```
-
-### Project structure
-
-```
-pi-composio/
-├── index.ts             # Extension entry point (6 tools + session init)
-├── docs/
-│   └── ARCHITECTURE.md  # Architecture document
-├── package.json
-├── tsconfig.json
-├── eslint.config.js
-├── .prettierrc
-├── Makefile
-├── .gitignore
-├── config.json          # Your API key (gitignored)
+composio/            # In ~/.pi/agent/extensions/
+├── index.ts         # 6 tools + session init
+├── package.json     # @composio/core dependency
+├── config.json      # Your API key + user ID (create this)
 └── README.md
 ```
 
@@ -178,7 +127,7 @@ pi-composio/
 | `@earendil-works/pi-tui` | TUI components (pi-provided) |
 | `typebox` | Tool parameter schemas (pi-provided) |
 
-Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` at runtime — you don't install them separately.
+Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` at runtime.
 
 ---
 

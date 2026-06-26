@@ -1,0 +1,12 @@
+# Dev tooling — not shipped at runtime
+Makefile
+tsconfig.json
+eslint.config.js
+.prettierrc
+.gitignore
+.gitattributes
+node_modules/
+bun.lock
+package-lock.json
+config.json
+.vscode/
