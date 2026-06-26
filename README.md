@@ -4,6 +4,8 @@ A [pi](https://github.com/earendil-works/pi) extension that bridges pi's native 
 
 **One extension. 6 tools. 1,000+ apps.** No MCP required.
 
+Depends on [Composio's TypeScript SDK](https://www.npmjs.com/package/@composio/core) (`@composio/core`).
+
 ---
 
 ## How it works
