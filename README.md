@@ -58,19 +58,19 @@ Once active, go to **Users** in the sidebar → copy your **user ID** (looks lik
 **Via git:**
 
 ```bash
-pi install git:github.com/your-username/pi-composio@v0.1.0
+pi install git:github.com/k3-2o/pi-composio@v0.1.0
 ```
 
 **Via npm** (once published):
 
 ```bash
-pi install npm:@scope/pi-composio
+pi install npm:@k3_2o/pi-composio
 ```
 
 **Manual clone** (if you prefer keeping the source around):
 
 ```bash
-git clone https://github.com/your-username/pi-composio ~/.pi/agent/extensions/composio/
+git clone https://github.com/k3-2o/pi-composio ~/.pi/agent/extensions/composio/
 cd ~/.pi/agent/extensions/composio && npm install
 ```
 
@@ -82,21 +82,7 @@ Drop your key and user ID in `config.json` inside the extension directory:
 echo '{"apiKey": "sk-...", "userId": "usr_..."}' > ~/.pi/agent/extensions/composio/config.json
 ```
 
-Or set an environment variable (no userId support via env):
-
-```bash
-export COMPOSIO_API_KEY=your_key_here
-```
-
 The user ID is what links your session to the apps you connected on the dashboard — without it, pi-composio won't find your connected accounts.
-
-### 5. Use it
-
-```bash
-pi
-/reload   # if pi was already running
-# "send an email to myself saying the extension is working"
-```
 
 ---
 
