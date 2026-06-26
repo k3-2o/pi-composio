@@ -47,9 +47,11 @@ Go to the [Composio dashboard](https://dashboard.composio.dev) → Sign up → C
 
 They offer a very generous free tier — 20,000 tool calls/month, plenty for personal use.
 
-### 2. Connect your apps
+### 2. Connect your apps and get your user ID
 
-Open [Composio's dashboard](https://dashboard.composio.dev) → **Apps** → click any app (Gmail, GitHub, Slack, etc.) → **Connect** → authorize in the browser. Done.
+Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** on the right → pick your app (Gmail, GitHub, Slack, etc.) → **Setup auth config** → authorize in the browser.
+
+While there, copy your **user ID** from the dashboard somewhere — you'll need it for `config.json`.
 
 ### 3. Install the extension
 
@@ -68,19 +70,19 @@ cd ~/.pi/agent/extensions/composio && npm install
 
 ### 4. Set your API key
 
-Drop your key in `config.json` inside the extension directory:
+Drop your key and user ID in `config.json` inside the extension directory:
 
 ```bash
-echo '{"apiKey": "sk-..."}' > ~/.pi/agent/extensions/composio/config.json
+echo '{"apiKey": "sk-...", "userId": "usr_..."}' > ~/.pi/agent/extensions/composio/config.json
 ```
 
-Or set an environment variable:
+Or set an environment variable (no userId support via env):
 
 ```bash
 export COMPOSIO_API_KEY=your_key_here
 ```
 
-Resolution: `config.json` → `COMPOSIO_API_KEY` env var.
+The user ID is what links your session to the apps you connected on the dashboard — without it, pi-composio won't find your connected accounts.
 
 ### 5. Use it
 
