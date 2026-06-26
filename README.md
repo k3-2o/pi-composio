@@ -49,7 +49,7 @@ They offer a very generous free tier — 20,000 tool calls/month, plenty for per
 
 ### 2. Connect your apps and get your user ID
 
-Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** on the right → pick your app → **Setup auth config** → authorize via API key or OAuth.
+Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** in the sidebar → pick your app → **Setup auth config** → authorize via API key or OAuth.
 
 Once active, go to **Users** in the sidebar → copy your **user ID** (looks like `usr_...`) — you'll need it for `config.json`.
 
