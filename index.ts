@@ -165,17 +165,16 @@ function parseSearchSummary(raw: string): string {
         }>
       | undefined;
     if (!results?.length) return "0 results";
-    const connectionCounts = new Map<string, boolean>();
-    for (const item of results) {
-      for (const [tk, status] of Object.entries(item.toolkit_connection_statuses ?? {})) {
-        connectionCounts.set(tk, status.has_active_connection === true);
-      }
-      const parts: string[] = [];
-      for (const [tk, connected] of connectionCounts) {
-        parts.push(`${tk} ${connected ? "on" : "off"}`);
-      }
-      return `${results.length} tools \u00b7 ${parts.join(", ")}`;
+    // Connection status lives at data.toolkit_connection_statuses (array), not per-result
+    const statuses: Array<{ toolkit: string; has_active_connection: boolean }> =
+      r?.data?.toolkit_connection_statuses ?? [];
+    const connectedMap = new Map<string, boolean>();
+    for (const s of statuses) {
+      connectedMap.set(s.toolkit, s.has_active_connection);
     }
+    const parts = [...connectedMap.entries()].map(([tk, on]) => `${tk} ${on ? "on" : "off"}`);
+    const status = parts.length > 0 ? ` \u00b7 ${parts.join(", ")}` : "";
+    return `${results.length} tool${results.length > 1 ? "s" : ""}${status}`;
   } catch {
     /* not parseable */
   }
@@ -193,7 +192,19 @@ function parseSchemaSummary(raw: string): string {
         }>
       | undefined;
     const t = tools?.[0];
-    if (!t) return "tool not found";
+    if (!t) {
+      // Fallback: get_schema response uses data.tool_schemas not data.tools
+      const schemas = r?.data?.tool_schemas as
+        | Record<string, { input_schema?: { properties?: Record<string, unknown> } }>
+        | undefined;
+      if (schemas) {
+        const slugs = Object.keys(schemas);
+        const first = schemas[slugs[0]!];
+        const params = Object.keys(first?.input_schema?.properties ?? {});
+        return `${slugs[0]} \u00b7 ${params.length} params`;
+      }
+      return "tool not found";
+    }
     const params = Object.keys(t.input_schema?.properties ?? {});
     const label = t.slug ?? "tool";
     return `${label} \u00b7 ${params.length} params`;
