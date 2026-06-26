@@ -62,7 +62,7 @@ Once active, go to **Users** in the sidebar → copy your **user ID** (looks lik
 **Via git:**
 
 ```bash
-pi install git:github.com/k3-2o/pi-composio@v0.1.0
+pi install git:github.com/k3-2o/pi-composio.git
 ```
 
 **Via npm** (once published):
@@ -74,7 +74,7 @@ pi install npm:@k3_2o/pi-composio
 **Manual clone** (if you prefer keeping the source around):
 
 ```bash
-git clone https://github.com/k3-2o/pi-composio ~/.pi/agent/extensions/composio/
+git clone https://github.com/k3-2o/pi-composio.git ~/.pi/agent/extensions/composio/
 cd ~/.pi/agent/extensions/composio && npm install
 ```
 
