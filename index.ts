@@ -127,7 +127,8 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
 // ── TUI rendering helpers ─────────────────────────────────────────────
 
 function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
-  const preview = valueText.length > 80 ? valueText.slice(0, 77) + "..." : valueText;
+  const clean = valueText.replace(/[\n\r\t]+/g, " ");
+  const preview = clean.length > 80 ? clean.slice(0, 77) + "..." : clean;
   return new Text(
     theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
     0,
@@ -140,12 +141,13 @@ function renderResultLine(toolLabel: string, result: AgentToolResult<Details>, t
     return new Text(
       theme.fg("warning", "⚠️") +
         " " +
-        theme.fg("dim", toolLabel + " failed — " + result.details.error),
+        theme.fg("dim", toolLabel + " failed — " + result.details.error.replace(/[\n\r\t]+/g, " ")),
       0,
       0,
     );
   }
-  const text = result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
+  const raw = result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
+  const text = raw.replace(/[\n\r\t]+/g, " ");
   const preview = text.length > 100 ? text.slice(0, 97) + "..." : text;
   return new Text(
     theme.fg("success", "✓") + " " + theme.fg("dim", toolLabel + " " + preview),
