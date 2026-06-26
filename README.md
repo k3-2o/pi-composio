@@ -43,31 +43,15 @@ You: "check my unread gmail"
 
 ### 1. Get an API key
 
-Go to the [Composio dashboard](https://app.composio.dev) → Sign up → Copy your API key from **Settings**.
+Go to the [Composio dashboard](https://dashboard.composio.dev) → Sign up → Copy your API key from **Settings**.
 
 They offer a very generous free tier — 20,000 tool calls/month, plenty for personal use.
 
 ### 2. Connect your apps
 
-Open [Composio's dashboard](https://app.composio.dev) → **Apps** → click any app (Gmail, GitHub, Slack, etc.) → **Connect** → authorize in the browser. Done.
+Open [Composio's dashboard](https://dashboard.composio.dev) → **Apps** → click any app (Gmail, GitHub, Slack, etc.) → **Connect** → authorize in the browser. Done.
 
 ### 3. Install the extension
-
-**Via git** (adds to settings.json for auto-install):
-
-```json
-{
-  "packages": [
-    "git:github.com/your-username/pi-composio@v0.1.0"
-  ]
-}
-```
-
-Run `pi install` after adding to settings, or use the CLI directly:
-
-```bash
-pi install git:github.com/your-username/pi-composio@v0.1.0
-```
 
 **Via npm** (once published):
 
