@@ -12,7 +12,8 @@ const PI_USER_ID = "pi-user";
 
 // ── Config resolution ─────────────────────────────────────────────────
 
-const CONFIG_PATH = join(dirname(fileURLToPath(import.meta.url)), "config.json");
+const EXTENSION_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const CONFIG_PATH = join(EXTENSION_DIR, "config.json");
 
 interface Config {
   apiKey?: string;
