@@ -354,7 +354,7 @@ function renderConnectResult(
  * No "..." wrapping to avoid breaking on Python code with internal quotes.
  */
 function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
-  const preview = previewLine(args.code_to_execute, 80);
+  const preview = previewLine(args.code_to_execute, 60);
   return new Text(
     theme.fg("toolTitle", theme.bold("🖥️ ")) + theme.fg("accent", preview),
     0,
