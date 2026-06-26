@@ -7,9 +7,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "fmt": "prettier --write 'src/**/*.ts'",
-    "fmt:check": "prettier --check 'src/**/*.ts'",
-    "lint": "eslint 'src/**/*.ts'",
+    "fmt": "prettier --write 'index.ts'",
+    "fmt:check": "prettier --check 'index.ts'",
+    "lint": "eslint 'index.ts'",
     "typecheck": "tsc --noEmit",
     "check": "npm run fmt:check && npm run lint && npm run typecheck",
     "security": "npm audit --audit-level=high",
