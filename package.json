@@ -16,15 +16,21 @@
     "ci": "npm run check && npm run security",
     "smoke": "node -e \"import('./src/index.ts')\""
   },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
   "devDependencies": {
     "eslint": "^9.0.0",
     "prettier": "^3.5.3",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.0.0",
-    "@earendil-works/pi-coding-agent": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent",
-    "@earendil-works/pi-tui": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui"
+    "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
     "@composio/core": "^0.13.0"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
   }
 }

@@ -16,12 +16,12 @@ The agent's tool list stays lean (~1,200 tokens for all schemas), and individual
 
 | Tool | What it does |
 |---|---|
-| `composio_search` | Search 1,000+ app tools by describing your task in natural language |
-| `composio_get_schema` | Get the full input schema for a specific tool slug |
-| `composio_execute` | Execute an app tool (send email, create issue, post message, etc.) |
-| `composio_connect` | Get an OAuth link to connect a new app account |
-| `composio_workbench` | Run Python code in Composio's sandboxed workbench |
-| `composio_bash` | Run shell commands in Composio's remote sandbox |
+| `composio_search` | Find tools in 1,000+ app catalog |
+| `composio_get_schema` | Inspect tool schemas |
+| `composio_execute` | Run any connected app tool |
+| `composio_connect` | OAuth link for new apps |
+| `composio_workbench` | Python sandbox (remote) |
+| `composio_bash` | Shell in remote sandbox |
 
 ### Tool flow
 
@@ -67,11 +67,17 @@ You can also connect apps through [Composio's dashboard](https://app.composio.de
 ### 3. Install the extension
 
 ```bash
-# Clone or copy the extension directory
-cp -r pi-composio ~/.pi/agent/extensions/composio/
+# Clone directly to pi's extension directory:
+git clone https://github.com/your-username/pi-composio ~/.pi/agent/extensions/composio/
+cd ~/.pi/agent/extensions/composio && npm install
 
-# Or use it directly with -e
-COMPOSIO_API_KEY=your_key_here pi -e ./index.ts
+# Or add to settings.json for auto-install:
+# ~/.pi/agent/settings.json
+# {
+#   "packages": [
+#     "git:github.com/your-username/pi-composio@v0.1.0"
+#   ]
+# }
 ```
 
 ### 4. Set your API key
@@ -79,22 +85,22 @@ COMPOSIO_API_KEY=your_key_here pi -e ./index.ts
 Drop your key in `config.json` inside the extension directory:
 
 ```bash
-# Edit pi-composio/config.json and paste your key
-echo '{"apiKey": "sk-..."}' > config.json
+echo '{"apiKey": "sk-..."}' > ~/.pi/agent/extensions/composio/config.json
 ```
 
-Or set an environment variable as fallback:
+Or set an environment variable:
 
 ```bash
 export COMPOSIO_API_KEY=your_key_here
 ```
 
-Resolution order: `config.json` (in extension dir) → `COMPOSIO_API_KEY` env var.
+Resolution: `config.json` (extension dir) → `COMPOSIO_API_KEY` env var.
 
 ### 5. Start using it
 
 ```bash
 pi
+/reload
 # "send an email to myself saying the extension is working"
 ```
 
@@ -150,19 +156,29 @@ make ci         # Full pipeline (check + security)
 
 ```
 pi-composio/
-├── 
-│ └── index.ts        # Extension entry point (6 tools + session init)
-├── .vscode/
-│   ├── LOOP.md          # Local workflow (not pushed)
-│   ├── SPEC.md           # Specification (not pushed)
-│   └── PLAN-TODO.md      # Plan tracker (not pushed)
+├── index.ts             # Extension entry point (6 tools + session init)
+├── docs/
+│   └── ARCHITECTURE.md  # Architecture document
 ├── package.json
 ├── tsconfig.json
 ├── eslint.config.js
 ├── .prettierrc
 ├── Makefile
+├── .gitignore
+├── config.json          # Your API key (gitignored)
 └── README.md
 ```
+
+## Dependencies
+
+| Package | Role |
+|---|---|
+| `@composio/core` | Composio TypeScript SDK |
+| `@earendil-works/pi-coding-agent` | Extension types (pi-provided) |
+| `@earendil-works/pi-tui` | TUI components (pi-provided) |
+| `typebox` | Tool parameter schemas (pi-provided) |
+
+Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` at runtime — you don't install them separately.
 
 ---
 

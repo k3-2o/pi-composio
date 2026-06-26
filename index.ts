@@ -230,7 +230,9 @@ function parseSandboxSummary(raw: string): string {
       return clean ? previewLine(clean, 40) : "(empty)";
     }
     if (d.results) {
-      const clean = String(d.results).replace(/[\n\r\t]+/g, " ").trim();
+      const clean = String(d.results)
+        .replace(/[\n\r\t]+/g, " ")
+        .trim();
       return clean ? previewLine(clean, 40) : "(empty)";
     }
     return "executed";
@@ -269,7 +271,11 @@ function renderSearchResult(
 // ── Tool 2: composio_get_schema ───────────────────────────────────────
 
 function renderSchemaCall(args: { tool_slugs: string[] }, theme: Theme): Text {
-  return new Text(callLine("📋 composio_get_schema", args.tool_slugs?.join(", ") ?? "...", theme), 0, 0);
+  return new Text(
+    callLine("📋 composio_get_schema", args.tool_slugs?.join(", ") ?? "...", theme),
+    0,
+    0,
+  );
 }
 
 function renderSchemaResult(
@@ -355,11 +361,7 @@ function renderConnectResult(
  */
 function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
   const preview = previewLine(args.code_to_execute, 60);
-  return new Text(
-    theme.fg("toolTitle", theme.bold("🖥 ")) + theme.fg("accent", preview),
-    0,
-    0,
-  );
+  return new Text(theme.fg("toolTitle", theme.bold("🖥 ")) + theme.fg("accent", preview), 0, 0);
 }
 
 function renderWorkbenchResult(
@@ -369,9 +371,10 @@ function renderWorkbenchResult(
 ): Text {
   const raw = rawText(result);
   if (result.details?.error) {
-    const errPreview = result.details.error.length > 120
-      ? result.details.error.slice(0, 117) + "..."
-      : result.details.error;
+    const errPreview =
+      result.details.error.length > 120
+        ? result.details.error.slice(0, 117) + "..."
+        : result.details.error;
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", errPreview), 0, 0);
   }
   const summary = parseSandboxSummary(raw);
@@ -390,11 +393,7 @@ function renderWorkbenchResult(
 
 function renderBashCall(args: { command: string }, theme: Theme): Text {
   const preview = previewLine(args.command, 80);
-  return new Text(
-    theme.fg("toolTitle", theme.bold("💻 ")) + theme.fg("accent", preview),
-    0,
-    0,
-  );
+  return new Text(theme.fg("toolTitle", theme.bold("💻 ")) + theme.fg("accent", preview), 0, 0);
 }
 
 function renderBashResult(
@@ -404,9 +403,10 @@ function renderBashResult(
 ): Text {
   const raw = rawText(result);
   if (result.details?.error) {
-    const errPreview = result.details.error.length > 120
-      ? result.details.error.slice(0, 117) + "..."
-      : result.details.error;
+    const errPreview =
+      result.details.error.length > 120
+        ? result.details.error.slice(0, 117) + "..."
+        : result.details.error;
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", errPreview), 0, 0);
   }
   const summary = parseSandboxSummary(raw);
@@ -435,9 +435,7 @@ function tryFormatJson(raw: string): string {
 function tryFormatSandboxOutput(raw: string): string {
   try {
     const r = JSON.parse(raw);
-    const d = r?.data as
-      | { stdout?: string; stderr?: string; results?: string }
-      | undefined;
+    const d = r?.data as { stdout?: string; stderr?: string; results?: string } | undefined;
     if (!d) return raw.slice(0, 2000);
     const parts: string[] = [];
     if (d.stdout?.trim()) parts.push(d.stdout.trim());
@@ -467,7 +465,7 @@ export default function (pi: ExtensionAPI) {
       const userId = resolveConfig().userId ?? PI_USER_ID;
       const session = await composio.create(userId);
       sessionId = session.sessionId;
-      ctx.ui.notify("pi-composio: session ready", "info");
+      // silent — no popup on successful init
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error creating session";
       ctx.ui.notify(`pi-composio: session init failed — ${msg}`, "error");
