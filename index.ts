@@ -155,11 +155,6 @@ function callLine(label: string, argDisplay: string, theme: Theme): string {
  * Format the bash-style call line matching the built-in bash pattern:
  *   toolTitle(bold "$ ") + accent(command)
  */
-function bashCallLine(command: string, theme: Theme): string {
-  const preview = previewLine(command, 80);
-  return theme.fg("toolTitle", theme.bold("$ ")) + theme.fg("accent", preview);
-}
-
 // ── Result summary parsers ────────────────────────────────────────────
 
 function rawText(result: AgentToolResult<Details>): string {
@@ -247,7 +242,7 @@ function parseSandboxSummary(raw: string): string {
 // ── Tool 1: composio_search ───────────────────────────────────────────
 
 function renderSearchCall(args: { queries: string[] }, theme: Theme): Text {
-  return new Text(callLine("composio_search", args.queries?.join(", ") ?? "...", theme), 0, 0);
+  return new Text(callLine("🔍 composio_search", args.queries?.join(", ") ?? "...", theme), 0, 0);
 }
 
 function renderSearchResult(
@@ -274,7 +269,7 @@ function renderSearchResult(
 // ── Tool 2: composio_get_schema ───────────────────────────────────────
 
 function renderSchemaCall(args: { tool_slugs: string[] }, theme: Theme): Text {
-  return new Text(callLine("composio_get_schema", args.tool_slugs?.join(", ") ?? "...", theme), 0, 0);
+  return new Text(callLine("📋 composio_get_schema", args.tool_slugs?.join(", ") ?? "...", theme), 0, 0);
 }
 
 function renderSchemaResult(
@@ -301,7 +296,7 @@ function renderSchemaResult(
 // ── Tool 3: composio_execute ──────────────────────────────────────────
 
 function renderExecuteCall(args: { tool: string; arguments: unknown }, theme: Theme): Text {
-  return new Text(callLine("composio_execute", args.tool, theme), 0, 0);
+  return new Text(callLine("⚡ composio_execute", args.tool, theme), 0, 0);
 }
 
 function renderExecuteResult(
@@ -328,7 +323,7 @@ function renderExecuteResult(
 // ── Tool 4: composio_connect ──────────────────────────────────────────
 
 function renderConnectCall(args: { toolkits: string[] }, theme: Theme): Text {
-  return new Text(callLine("composio_connect", args.toolkits?.join(", ") ?? "...", theme), 0, 0);
+  return new Text(callLine("↗ composio_connect", args.toolkits?.join(", ") ?? "...", theme), 0, 0);
 }
 
 function renderConnectResult(
@@ -359,7 +354,12 @@ function renderConnectResult(
  * No "..." wrapping to avoid breaking on Python code with internal quotes.
  */
 function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
-  return new Text(bashCallLine(args.code_to_execute, theme), 0, 0);
+  const preview = previewLine(args.code_to_execute, 80);
+  return new Text(
+    theme.fg("toolTitle", theme.bold("🖥️ $ ")) + theme.fg("accent", preview),
+    0,
+    0,
+  );
 }
 
 function renderWorkbenchResult(
@@ -389,7 +389,12 @@ function renderWorkbenchResult(
 // ── Tool 6: composio_bash (bash-like rendering) ───────────────────────
 
 function renderBashCall(args: { command: string }, theme: Theme): Text {
-  return new Text(bashCallLine(args.command, theme), 0, 0);
+  const preview = previewLine(args.command, 80);
+  return new Text(
+    theme.fg("toolTitle", theme.bold("💻 $ ")) + theme.fg("accent", preview),
+    0,
+    0,
+  );
 }
 
 function renderBashResult(
@@ -473,7 +478,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "composio_search",
-    label: "composio_search",
+    label: "🔍 composio_search",
     description: `Search Composio's catalog of 1,000+ app tools by describing your task in natural language.
 
 Returns matching tool slugs, their input schemas, and whether each app is connected.
@@ -508,7 +513,7 @@ Examples:
 
   pi.registerTool({
     name: "composio_get_schema",
-    label: "composio_get_schema",
+    label: "📋 composio_get_schema",
     description: `Get the full input schema for one or more tool slugs.
 
 Use after composio_search to see exactly what parameters a tool expects.
@@ -537,7 +542,7 @@ The schema shows required vs optional parameters, types, and descriptions.`,
 
   pi.registerTool({
     name: "composio_execute",
-    label: "composio_execute",
+    label: "⚡ composio_execute",
     description: `Execute an app tool by its slug with the required arguments.
 
 Use after:
@@ -575,7 +580,7 @@ The tool must have been connected via composio_connect first.`,
 
   pi.registerTool({
     name: "composio_connect",
-    label: "composio_connect",
+    label: "↗ composio_connect",
     description: `Get an OAuth link to connect a new app account.
 
 After authorization, the app becomes available for composio_search and composio_execute.
@@ -606,7 +611,7 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
 
   pi.registerTool({
     name: "composio_workbench",
-    label: "composio_workbench",
+    label: "🖥️ composio_workbench",
     description: `Run Python code in Composio's sandboxed workbench environment.
 
 The workbench shares the session's connected accounts, so you can:
@@ -639,7 +644,7 @@ Results and variables persist across calls within the same session.`,
 
   pi.registerTool({
     name: "composio_bash",
-    label: "composio_bash",
+    label: "💻 composio_bash",
     description: `Run shell commands in Composio's remote sandbox environment.
 
 Useful for:
