@@ -23,5 +23,8 @@
     "typescript-eslint": "^8.0.0",
     "@earendil-works/pi-coding-agent": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent",
     "@earendil-works/pi-tui": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui"
+  },
+  "dependencies": {
+    "@composio/core": "^0.13.0"
   }
 }
