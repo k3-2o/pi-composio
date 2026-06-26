@@ -128,7 +128,7 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
 
 function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
   const clean = valueText.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 30 ? clean.slice(0, 57) + "..." : clean;
+  const preview = clean.length > 60 ? clean.slice(0, 57) + "..." : clean;
   return new Text(
     theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
     0,
