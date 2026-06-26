@@ -17,28 +17,29 @@ const CONFIG_PATH = join(EXTENSION_DIR, "config.json");
 
 interface Config {
   apiKey?: string;
+  userId?: string;
+}
+
+function resolveConfig(): Config {
+  try {
+    if (existsSync(CONFIG_PATH)) {
+      return JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) as Config;
+    }
+  } catch {
+    /* skip unreadable config */
+  }
+  return {};
 }
 
 function resolveApiKey(): string {
-  // 1. Check config.json in the extension directory
-  try {
-    if (existsSync(CONFIG_PATH)) {
-      const raw = readFileSync(CONFIG_PATH, "utf-8");
-      const config = JSON.parse(raw) as Config;
-      if (config.apiKey) return config.apiKey;
-    }
-  } catch {
-    // skip unreadable config
-  }
-
-  // 2. Fallback to environment variable
-  return process.env.COMPOSIO_API_KEY ?? "";
+  return resolveConfig().apiKey ?? process.env.COMPOSIO_API_KEY ?? "";
 }
 
 function configHint(): string {
   return `Create ${CONFIG_PATH} with:
 {
-  "apiKey": "your-composio-api-key"
+  "apiKey": "your-composio-api-key",
+  "userId": "your-user-id"
 }`;
 }
 
@@ -182,7 +183,8 @@ export default function (pi: ExtensionAPI) {
 
     try {
       composio = new Composio({ apiKey });
-      const session = await composio.create(PI_USER_ID);
+      const userId = resolveConfig().userId ?? PI_USER_ID;
+      const session = await composio.create(userId);
       sessionId = session.sessionId;
       ctx.ui.notify("pi-composio: session ready", "info");
     } catch (err) {
