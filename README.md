@@ -76,19 +76,20 @@ COMPOSIO_API_KEY=your_key_here pi -e ./src/index.ts
 
 ### 4. Set your API key
 
+Drop it in a config file (recommended):
+
+```bash
+mkdir -p ~/.config/pi-composio
+echo '{"apiKey": "sk-..."}' > ~/.config/pi-composio/config.json
+```
+
+Or set an environment variable:
+
 ```bash
 export COMPOSIO_API_KEY=your_key_here
 ```
 
-Or add it to your pi config:
-
-```json
-{
-  "env": {
-    "COMPOSIO_API_KEY": "your_key_here"
-  }
-}
-```
+Resolution order: `~/.config/pi-composio/config.json` → `~/.pi-composio.json` → `COMPOSIO_API_KEY` env var.
 
 ### 5. Start using it
 

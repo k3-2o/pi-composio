@@ -1,3 +1,6 @@
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import type { ExtensionAPI, AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { Theme } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -7,15 +10,47 @@ import { Composio } from "@composio/core";
 const COMPOSIO_BASE = "https://backend.composio.dev/api/v3.1";
 const PI_USER_ID = "pi-user";
 
+// ── Config resolution ─────────────────────────────────────────────────
+
+const CONFIG_PATHS = [
+  join(homedir(), ".config", "pi-composio", "config.json"),
+  join(homedir(), ".pi-composio.json"),
+];
+
+interface Config {
+  apiKey?: string;
+}
+
+function resolveApiKey(): string {
+  // 1. Check config files (XDG ~/.config/pi-composio/config.json first)
+  for (const configPath of CONFIG_PATHS) {
+    try {
+      if (existsSync(configPath)) {
+        const raw = readFileSync(configPath, "utf-8");
+        const config = JSON.parse(raw) as Config;
+        if (config.apiKey) return config.apiKey;
+      }
+    } catch {
+      // skip unreadable config files
+    }
+  }
+
+  // 2. Fallback to environment variable
+  return process.env.COMPOSIO_API_KEY ?? "";
+}
+
+function configHint(): string {
+  return `Create ${CONFIG_PATHS[0]} with:
+{
+  "apiKey": "your-composio-api-key"
+}`;
+}
+
 // ── Error classes ─────────────────────────────────────────────────────
 
 class ComposioSessionError extends Error {
   constructor(action: string) {
-    super(
-      `Composio session not initialized. ` +
-        `Set COMPOSIO_API_KEY in your environment and restart pi. ` +
-        `Action attempted: ${action}`,
-    );
+    super(`Composio session not initialized. ` + configHint() + ` Action attempted: ${action}`);
     this.name = "ComposioSessionError";
   }
 }
@@ -159,9 +194,9 @@ export default function (pi: ExtensionAPI) {
   // ── Session Init ──────────────────────────────────────────────────
 
   pi.on("session_start", async (_event, ctx) => {
-    apiKey = process.env.COMPOSIO_API_KEY ?? "";
+    apiKey = resolveApiKey();
     if (!apiKey) {
-      ctx.ui.notify("pi-composio: set COMPOSIO_API_KEY environment variable", "error");
+      ctx.ui.notify("pi-composio: " + configHint(), "error");
       return;
     }
 
