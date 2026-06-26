@@ -5,3 +5,4 @@ dist/
 *.log
 .vscode/
 config.json
+bun.lock
