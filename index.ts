@@ -128,7 +128,7 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
 
 function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
   const clean = valueText.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 60 ? clean.slice(0, 57) + "..." : clean;
+  const preview = clean.length > 30 ? clean.slice(0, 57) + "..." : clean;
   return new Text(
     theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
     0,
@@ -223,8 +223,8 @@ function parseSandboxSummary(raw: string): string {
     // Workbench: raw stdout text
     if (d.stdout) {
       const clean = d.stdout.replace(/[\n\r\t]+/g, " ").trim();
-      const preview = clean.slice(0, 60) || "(empty)";
-      return clean.length > 60 ? `"${preview}..."` : `"${preview}"`;
+      const preview = clean.slice(0, 30) || "(empty)";
+      return clean.length > 30 ? `"${preview}…"` : `"${preview}"`;
     }
     if (d.results) {
       const clean = String(d.results)
