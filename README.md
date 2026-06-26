@@ -100,16 +100,7 @@ composio/            # In ~/.pi/agent/extensions/
 
 ---
 
-Composio pricing (as of 2026):
-
-| Plan | Tool calls/month | Price |
-|---|---|---|
-| Totally Free | 20K (incl 1K premium) | $0 |
-| Ridiculously Cheap | 200K | $29/mo |
-| Serious Business | 2M | $229/mo |
-| Enterprise | Custom | Custom |
-
-Premium tools (search APIs, code sandboxes, ML inference) cost ~3x a standard tool call.
+Check [Composio's pricing page](https://composio.dev/pricing) for current plans.
 
 ---
 

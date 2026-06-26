@@ -1,5 +1,5 @@
 {
-  "name": "pi-composio",
+  "name": "@k3_2o/pi-composio",
   "version": "0.1.0",
   "private": true,
   "description": "Pi extension — Composio integration for 1,000+ app tools",
