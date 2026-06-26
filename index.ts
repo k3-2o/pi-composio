@@ -1,8 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ExtensionAPI, AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, AgentToolResult, Theme } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Text } from "@earendil-works/pi-tui";
 import { Composio } from "@composio/core";
@@ -118,34 +117,53 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
   }
 }
 
-// ── TUI rendering helpers ─────────────────────────────────────────────
+// ── Rendering primitives (matches built-in read/bash pattern) ─────────
 
-function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
-  const clean = valueText.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 40 ? clean.slice(0, 37) + "..." : clean;
-  return new Text(
-    theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
-    0,
-    0,
-  );
+/**
+ * Collapse multi-line text into a single-line preview.
+ * Replaces newlines/tabs with spaces, truncates to fit.
+ */
+function previewLine(text: string, maxLen = 60): string {
+  const clean = text.replace(/[\n\r\t]+/g, " ").trim();
+  if (clean.length <= maxLen) return clean;
+  return clean.slice(0, maxLen - 3) + "...";
 }
 
-function renderResult(
-  toolLabel: string,
-  result: AgentToolResult<Details>,
-  expanded: boolean,
-  theme: Theme,
-  summary: string,
-): Text {
-  const raw = result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
-  const full = raw.replace(/[\n\r\t]+/g, " ");
-  if (result.details?.error) {
-    const line =
-      theme.fg("error", "\u2717") + " " + theme.fg("dim", toolLabel + " failed — " + full);
-    return new Text(expanded ? line + "\n" + theme.fg("dim", raw) : line, 0, 0);
-  }
-  const line = theme.fg("success", "\u2713") + " " + theme.fg("dim", toolLabel + " " + summary);
-  return new Text(expanded ? line + "\n" + theme.fg("dim", raw) : line, 0, 0);
+/**
+ * Build the "ctrl+o to expand" hint seen in built-in tools.
+ */
+function expandHint(theme: Theme): string {
+  return theme.fg("dim", "ctrl+o") + theme.fg("muted", " to expand");
+}
+
+/**
+ * Build the "ctrl+o to collapse" hint.
+ */
+function collapseHint(theme: Theme): string {
+  return theme.fg("dim", "ctrl+o") + theme.fg("muted", " to collapse");
+}
+
+/**
+ * Format a tool call line matching the built-in read tool pattern:
+ *   toolTitle(bold "tool " ) + accent(args)
+ */
+function callLine(label: string, argDisplay: string, theme: Theme): string {
+  return theme.fg("toolTitle", theme.bold(label + " ")) + theme.fg("accent", argDisplay);
+}
+
+/**
+ * Format the bash-style call line matching the built-in bash pattern:
+ *   toolTitle(bold "$ ") + accent(command)
+ */
+function bashCallLine(command: string, theme: Theme): string {
+  const preview = previewLine(command, 80);
+  return theme.fg("toolTitle", theme.bold("$ ")) + theme.fg("accent", preview);
+}
+
+// ── Result summary parsers ────────────────────────────────────────────
+
+function rawText(result: AgentToolResult<Details>): string {
+  return result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
 }
 
 function parseSearchSummary(raw: string): string {
@@ -193,6 +211,16 @@ function parseSchemaSummary(raw: string): string {
   return "schema loaded";
 }
 
+function parseExecuteSummary(raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    if (r?.error) return `error: ${String(r.error).slice(0, 60)}`;
+    return "executed";
+  } catch {
+    return "executed";
+  }
+}
+
 function parseSandboxSummary(raw: string): string {
   try {
     const r = JSON.parse(raw);
@@ -203,46 +231,217 @@ function parseSandboxSummary(raw: string): string {
     if (d.stdoutLines != null || d.stderrLines != null)
       return `stdout: ${d.stdoutLines ?? 0}, stderr: ${d.stderrLines ?? 0}`;
     if (d.stdout) {
-      const clean = d.stdout
-        .replace(/[\n\r\t]+/g, " ")
-        .trim()
-        .slice(0, 25);
-      return clean ? `"${clean}"` : "(empty)";
+      const clean = d.stdout.replace(/[\n\r\t]+/g, " ").trim();
+      return clean ? previewLine(clean, 40) : "(empty)";
     }
     if (d.results) {
-      const clean = String(d.results)
-        .replace(/[\n\r\t]+/g, " ")
-        .trim()
-        .slice(0, 25);
-      return clean ? `"${clean}"` : "(empty)";
+      const clean = String(d.results).replace(/[\n\r\t]+/g, " ").trim();
+      return clean ? previewLine(clean, 40) : "(empty)";
     }
     return "executed";
   } catch {
-    /* not parseable */
+    return "executed";
   }
-  return "executed";
 }
 
-function parseExecuteSummary(raw: string): string {
+// ── Tool 1: composio_search ───────────────────────────────────────────
+
+function renderSearchCall(args: { queries: string[] }, theme: Theme): Text {
+  return new Text(callLine("composio_search", args.queries?.join(", ") ?? "...", theme), 0, 0);
+}
+
+function renderSearchResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
+  }
+  const summary = parseSearchSummary(raw);
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", summary);
+  if (expanded) {
+    const json = tryFormatJson(raw);
+    lines += "\n" + theme.fg("dim", json);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Tool 2: composio_get_schema ───────────────────────────────────────
+
+function renderSchemaCall(args: { tool_slugs: string[] }, theme: Theme): Text {
+  return new Text(callLine("composio_get_schema", args.tool_slugs?.join(", ") ?? "...", theme), 0, 0);
+}
+
+function renderSchemaResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
+  }
+  const summary = parseSchemaSummary(raw);
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", summary);
+  if (expanded) {
+    const json = tryFormatJson(raw);
+    lines += "\n" + theme.fg("dim", json);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Tool 3: composio_execute ──────────────────────────────────────────
+
+function renderExecuteCall(args: { tool: string; arguments: unknown }, theme: Theme): Text {
+  return new Text(callLine("composio_execute", args.tool, theme), 0, 0);
+}
+
+function renderExecuteResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
+  }
+  const summary = parseExecuteSummary(raw);
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", summary);
+  if (expanded) {
+    const json = tryFormatJson(raw);
+    lines += "\n" + theme.fg("dim", json);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Tool 4: composio_connect ──────────────────────────────────────────
+
+function renderConnectCall(args: { toolkits: string[] }, theme: Theme): Text {
+  return new Text(callLine("composio_connect", args.toolkits?.join(", ") ?? "...", theme), 0, 0);
+}
+
+function renderConnectResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
+  }
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", "connected");
+  if (expanded) {
+    const json = tryFormatJson(raw);
+    lines += "\n" + theme.fg("dim", json);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Tool 5: composio_workbench (bash-like rendering) ──────────────────
+
+/**
+ * Workbench renderCall matches the built-in bash tool pattern:
+ *   $ python_code_preview
+ * No "..." wrapping to avoid breaking on Python code with internal quotes.
+ */
+function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
+  return new Text(bashCallLine(args.code_to_execute, theme), 0, 0);
+}
+
+function renderWorkbenchResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    const errPreview = result.details.error.length > 120
+      ? result.details.error.slice(0, 117) + "..."
+      : result.details.error;
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", errPreview), 0, 0);
+  }
+  const summary = parseSandboxSummary(raw);
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", summary);
+  if (expanded) {
+    const output = tryFormatSandboxOutput(raw);
+    lines += "\n" + theme.fg("dim", output);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Tool 6: composio_bash (bash-like rendering) ───────────────────────
+
+function renderBashCall(args: { command: string }, theme: Theme): Text {
+  return new Text(bashCallLine(args.command, theme), 0, 0);
+}
+
+function renderBashResult(
+  result: AgentToolResult<Details>,
+  { expanded }: { expanded: boolean },
+  theme: Theme,
+): Text {
+  const raw = rawText(result);
+  if (result.details?.error) {
+    const errPreview = result.details.error.length > 120
+      ? result.details.error.slice(0, 117) + "..."
+      : result.details.error;
+    return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", errPreview), 0, 0);
+  }
+  const summary = parseSandboxSummary(raw);
+  let lines = theme.fg("success", "\u2713 ") + theme.fg("muted", summary);
+  if (expanded) {
+    const output = tryFormatSandboxOutput(raw);
+    lines += "\n" + theme.fg("dim", output);
+    lines += "\n" + collapseHint(theme);
+  } else {
+    lines += "  " + expandHint(theme);
+  }
+  return new Text(lines, 0, 0);
+}
+
+// ── Formatting helpers ────────────────────────────────────────────────
+
+function tryFormatJson(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return raw.slice(0, 2000);
+  }
+}
+
+function tryFormatSandboxOutput(raw: string): string {
   try {
     const r = JSON.parse(raw);
-    if (r?.error) return `error: ${String(r.error).slice(0, 60)}`;
-    return "executed";
+    const d = r?.data as
+      | { stdout?: string; stderr?: string; results?: string }
+      | undefined;
+    if (!d) return raw.slice(0, 2000);
+    const parts: string[] = [];
+    if (d.stdout?.trim()) parts.push(d.stdout.trim());
+    if (d.stderr?.trim()) parts.push(d.stderr.trim());
+    if (d.results?.trim()) parts.push(d.results.trim());
+    return parts.join("\n").slice(0, 2000) || raw.slice(0, 2000);
   } catch {
-    /* not parseable */
+    return raw.slice(0, 2000);
   }
-  return "executed";
-}
-
-// ── Tool params ───────────────────────────────────────────────────────
-
-interface ExecuteParams {
-  tool: string;
-  arguments: unknown;
-}
-
-interface CommandParams {
-  command: string;
 }
 
 // ── Extension entry point ─────────────────────────────────────────────
@@ -274,7 +473,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "composio_search",
-    label: "🔍 Search Tools",
+    label: "composio_search",
     description: `Search Composio's catalog of 1,000+ app tools by describing your task in natural language.
 
 Returns matching tool slugs, their input schemas, and whether each app is connected.
@@ -290,22 +489,8 @@ Examples:
           "Natural language descriptions of what you want to do. Use a single query as an array: ['find my latest github issues']",
       }),
     }),
-    renderCall(args: { queries: string[] }, theme: Theme) {
-      return renderCallLine("🔍 Search", args.queries?.join(", ") ?? "", theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult(
-        "🔍 Search",
-        result,
-        expanded,
-        theme,
-        parseSearchSummary(rawText(result)),
-      );
-    },
+    renderCall: renderSearchCall,
+    renderResult: renderSearchResult,
     async execute(
       _toolCallId: string,
       params: { queries: string[] },
@@ -323,7 +508,7 @@ Examples:
 
   pi.registerTool({
     name: "composio_get_schema",
-    label: "📋 Get Schema",
+    label: "composio_get_schema",
     description: `Get the full input schema for one or more tool slugs.
 
 Use after composio_search to see exactly what parameters a tool expects.
@@ -333,22 +518,8 @@ The schema shows required vs optional parameters, types, and descriptions.`,
         description: "Tool slugs, e.g. ['GMAIL_SEND_EMAIL'] or ['GITHUB_LIST_ISSUES']",
       }),
     }),
-    renderCall(args: { tool_slugs: string[] }, theme: Theme) {
-      return renderCallLine("📋 Schema", args.tool_slugs?.join(", ") ?? "", theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult(
-        "📋 Schema",
-        result,
-        expanded,
-        theme,
-        parseSchemaSummary(rawText(result)),
-      );
-    },
+    renderCall: renderSchemaCall,
+    renderResult: renderSchemaResult,
     async execute(
       _toolCallId: string,
       params: { tool_slugs: string[] },
@@ -366,7 +537,7 @@ The schema shows required vs optional parameters, types, and descriptions.`,
 
   pi.registerTool({
     name: "composio_execute",
-    label: "⚡ Execute",
+    label: "composio_execute",
     description: `Execute an app tool by its slug with the required arguments.
 
 Use after:
@@ -383,23 +554,12 @@ The tool must have been connected via composio_connect first.`,
         description: "JSON object with the tool's input parameters.",
       }),
     }),
-    renderCall(args: ExecuteParams, theme: Theme) {
-      return renderCallLine("⚡ Execute", args.tool, theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult(
-        "⚡ Execute",
-        result,
-        expanded,
-        theme,
-        parseExecuteSummary(rawText(result)),
-      );
-    },
-    async execute(_toolCallId: string, params: ExecuteParams): Promise<AgentToolResult<Details>> {
+    renderCall: renderExecuteCall,
+    renderResult: renderExecuteResult,
+    async execute(
+      _toolCallId: string,
+      params: { tool: string; arguments: unknown },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_execute");
         const result = await composio!.tools.executeSessionTool(params.tool, {
@@ -415,7 +575,7 @@ The tool must have been connected via composio_connect first.`,
 
   pi.registerTool({
     name: "composio_connect",
-    label: "🔗 Connect App",
+    label: "composio_connect",
     description: `Get an OAuth link to connect a new app account.
 
 After authorization, the app becomes available for composio_search and composio_execute.
@@ -427,16 +587,8 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
         description: "App name(s) to connect, e.g. ['gmail'], ['slack'], ['github', 'notion']",
       }),
     }),
-    renderCall(args: { toolkits: string[] }, theme: Theme) {
-      return renderCallLine("🔗 Connect", args.toolkits?.join(", ") ?? "", theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult("🔗 Connect", result, expanded, theme, "done");
-    },
+    renderCall: renderConnectCall,
+    renderResult: renderConnectResult,
     async execute(
       _toolCallId: string,
       params: { toolkits: string[] },
@@ -450,11 +602,11 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
     },
   });
 
-  // ── Tool 5: composio_workbench ──────────────────────────────────
+  // ── Tool 5: composio_workbench (bash-like) ──────────────────────
 
   pi.registerTool({
     name: "composio_workbench",
-    label: "🖥️ Workbench",
+    label: "composio_workbench",
     description: `Run Python code in Composio's sandboxed workbench environment.
 
 The workbench shares the session's connected accounts, so you can:
@@ -468,22 +620,8 @@ Results and variables persist across calls within the same session.`,
         description: "Python code to execute in the workbench sandbox",
       }),
     }),
-    renderCall(args: { code_to_execute: string }, theme: Theme) {
-      return renderCallLine("🖥️ Workbench", args.code_to_execute, theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult(
-        "🖥️ Workbench",
-        result,
-        expanded,
-        theme,
-        parseSandboxSummary(rawText(result)),
-      );
-    },
+    renderCall: renderWorkbenchCall,
+    renderResult: renderWorkbenchResult,
     async execute(
       _toolCallId: string,
       params: { code_to_execute: string },
@@ -497,11 +635,11 @@ Results and variables persist across calls within the same session.`,
     },
   });
 
-  // ── Tool 6: composio_bash ───────────────────────────────────────
+  // ── Tool 6: composio_bash (bash-like) ───────────────────────────
 
   pi.registerTool({
     name: "composio_bash",
-    label: "💻 Remote Bash",
+    label: "composio_bash",
     description: `Run shell commands in Composio's remote sandbox environment.
 
 Useful for:
@@ -515,17 +653,12 @@ The sandbox is scoped to the session and persists state between calls.`,
         description: "Shell command to execute in the remote sandbox",
       }),
     }),
-    renderCall(args: CommandParams, theme: Theme) {
-      return renderCallLine("💻 Bash", args.command, theme);
-    },
-    renderResult(
-      result: AgentToolResult<Details>,
-      { expanded }: { expanded: boolean },
-      theme: Theme,
-    ) {
-      return renderResult("💻 Bash", result, expanded, theme, parseSandboxSummary(rawText(result)));
-    },
-    async execute(_toolCallId: string, params: CommandParams): Promise<AgentToolResult<Details>> {
+    renderCall: renderBashCall,
+    renderResult: renderBashResult,
+    async execute(
+      _toolCallId: string,
+      params: { command: string },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_bash");
         return executeMetaTool(apiKey, sessionId, "COMPOSIO_REMOTE_BASH_TOOL", {
@@ -534,8 +667,4 @@ The sandbox is scoped to the session and persists state between calls.`,
       });
     },
   });
-}
-
-function rawText(result: AgentToolResult<Details>): string {
-  return result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
 }
