@@ -1,0 +1,27 @@
+{
+  "name": "pi-composio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pi extension — Composio integration for 1,000+ app tools",
+  "keywords": ["pi-package", "extension", "composio", "tools", "integrations"],
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "fmt": "prettier --write 'src/**/*.ts'",
+    "fmt:check": "prettier --check 'src/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run fmt:check && npm run lint && npm run typecheck",
+    "security": "npm audit --audit-level=high",
+    "ci": "npm run check && npm run security",
+    "smoke": "node -e \"import('./src/index.ts')\""
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.0.0",
+    "@earendil-works/pi-coding-agent": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-tui": "file:/home/k2/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui"
+  }
+}
