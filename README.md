@@ -39,6 +39,8 @@ You: "check my unread gmail"
 3. pi reads the results to you
 ```
 
+Need an app you haven't connected yet? Use `composio_connect` in pi — it generates an OAuth link so you can authorise on the spot without leaving the chat.
+
 ---
 
 ## Setup
