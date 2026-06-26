@@ -155,25 +155,9 @@ function renderResultLine(toolLabel: string, result: AgentToolResult<Details>, t
 
 // ── Tool definitions ──────────────────────────────────────────────────
 
-interface SearchParams {
-  task: string;
-}
-
-interface SlugParams {
-  slug: string;
-}
-
 interface ExecuteParams {
   tool: string;
   arguments: unknown;
-}
-
-interface AppParams {
-  app: string;
-}
-
-interface CodeParams {
-  code: string;
 }
 
 interface CommandParams {
@@ -222,13 +206,13 @@ Examples:
   "send an email to bob about the deploy"
   "list open pull requests in composiohq/composio"`,
     parameters: Type.Object({
-      task: Type.String({
+      queries: Type.Array(Type.String(), {
         description:
-          "Natural language description of what you want to do. Be specific about the app and action.",
+          "Natural language descriptions of what you want to do. Use a single query as an array: ['find my latest github issues']",
       }),
     }),
-    renderCall(args: SearchParams, theme: Theme) {
-      return renderCallLine("🔍 Search", args.task, theme);
+    renderCall(args: { queries: string[] }, theme: Theme) {
+      return renderCallLine("🔍 Search", args.queries?.join(", ") ?? "", theme);
     },
     renderResult(
       result: AgentToolResult<Details>,
@@ -237,11 +221,14 @@ Examples:
     ) {
       return renderResultLine("🔍 Search", result, theme);
     },
-    async execute(_toolCallId: string, params: SearchParams): Promise<AgentToolResult<Details>> {
+    async execute(
+      _toolCallId: string,
+      params: { queries: string[] },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_search");
         return executeMetaTool(apiKey, sessionId, "COMPOSIO_SEARCH_TOOLS", {
-          text: params.task,
+          queries: params.queries,
         });
       });
     },
@@ -252,20 +239,20 @@ Examples:
   pi.registerTool({
     name: "composio_get_schema",
     label: "📋 Get Schema",
-    description: `Get the full input schema for a specific tool slug.
+    description: `Get the full input schema for one or more tool slugs.
 
 Use after composio_search to see exactly what parameters a tool expects.
 The schema shows required vs optional parameters, types, and descriptions.
 
-Example: "GMAIL_SEND_EMAIL" shows { to, subject, body } parameters.`,
+Example: ["GMAIL_SEND_EMAIL"] shows { to, subject, body } parameters.`,
     parameters: Type.Object({
-      slug: Type.String({
+      tool_slugs: Type.Array(Type.String(), {
         description:
-          "Tool slug from composio_search results, e.g. GMAIL_SEND_EMAIL or GITHUB_LIST_ISSUES",
+          "Tool slugs from composio_search results, e.g. ['GMAIL_SEND_EMAIL'] or ['GITHUB_LIST_ISSUES']",
       }),
     }),
-    renderCall(args: SlugParams, theme: Theme) {
-      return renderCallLine("📋 Schema", args.slug, theme);
+    renderCall(args: { tool_slugs: string[] }, theme: Theme) {
+      return renderCallLine("📋 Schema", args.tool_slugs?.join(", ") ?? "", theme);
     },
     renderResult(
       result: AgentToolResult<Details>,
@@ -274,11 +261,14 @@ Example: "GMAIL_SEND_EMAIL" shows { to, subject, body } parameters.`,
     ) {
       return renderResultLine("📋 Schema", result, theme);
     },
-    async execute(_toolCallId: string, params: SlugParams): Promise<AgentToolResult<Details>> {
+    async execute(
+      _toolCallId: string,
+      params: { tool_slugs: string[] },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_get_schema");
         return executeMetaTool(apiKey, sessionId, "COMPOSIO_GET_TOOL_SCHEMAS", {
-          slug: params.slug,
+          tool_slugs: params.tool_slugs,
         });
       });
     },
@@ -341,12 +331,12 @@ You only need to connect an app once — Composio persists the OAuth token.
 
 Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma, salesforce`,
     parameters: Type.Object({
-      app: Type.String({
-        description: "App name to connect, e.g. 'gmail', 'slack', 'github', 'notion'",
+      toolkits: Type.Array(Type.String(), {
+        description: "App name(s) to connect, e.g. ['gmail'], ['slack'], ['github', 'notion']",
       }),
     }),
-    renderCall(args: AppParams, theme: Theme) {
-      return renderCallLine("🔗 Connect", args.app, theme);
+    renderCall(args: { toolkits: string[] }, theme: Theme) {
+      return renderCallLine("🔗 Connect", args.toolkits?.join(", ") ?? "", theme);
     },
     renderResult(
       result: AgentToolResult<Details>,
@@ -355,11 +345,14 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
     ) {
       return renderResultLine("🔗 Connect", result, theme);
     },
-    async execute(_toolCallId: string, params: AppParams): Promise<AgentToolResult<Details>> {
+    async execute(
+      _toolCallId: string,
+      params: { toolkits: string[] },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_connect");
         return executeMetaTool(apiKey, sessionId, "COMPOSIO_MANAGE_CONNECTIONS", {
-          app: params.app,
+          toolkits: params.toolkits,
         });
       });
     },
@@ -380,12 +373,12 @@ The workbench shares the session's connected accounts, so you can:
 
 Results and variables persist across calls within the same session.`,
     parameters: Type.Object({
-      code: Type.String({
+      code_to_execute: Type.String({
         description: "Python code to execute in the workbench sandbox",
       }),
     }),
-    renderCall(args: CodeParams, theme: Theme) {
-      return renderCallLine("🖥️ Workbench", args.code, theme);
+    renderCall(args: { code_to_execute: string }, theme: Theme) {
+      return renderCallLine("🖥️ Workbench", args.code_to_execute, theme);
     },
     renderResult(
       result: AgentToolResult<Details>,
@@ -394,11 +387,14 @@ Results and variables persist across calls within the same session.`,
     ) {
       return renderResultLine("🖥️ Workbench", result, theme);
     },
-    async execute(_toolCallId: string, params: CodeParams): Promise<AgentToolResult<Details>> {
+    async execute(
+      _toolCallId: string,
+      params: { code_to_execute: string },
+    ): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
         guardSession(sessionId, composio, "composio_workbench");
         return executeMetaTool(apiKey, sessionId, "COMPOSIO_REMOTE_WORKBENCH", {
-          code: params.code,
+          code_to_execute: params.code_to_execute,
         });
       });
     },
