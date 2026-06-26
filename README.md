@@ -49,9 +49,9 @@ They offer a very generous free tier — 20,000 tool calls/month, plenty for per
 
 ### 2. Connect your apps and get your user ID
 
-Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** on the right → pick your app (Gmail, GitHub, Slack, etc.) → **Setup auth config** → authorize in the browser.
+Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** on the right → pick your app → **Setup auth config** → authorize via API key or OAuth.
 
-While there, copy your **user ID** from the dashboard somewhere — you'll need it for `config.json`.
+Once active, go to **Users** in the sidebar → copy your **user ID** (looks like `usr_...`) — you'll need it for `config.json`.
 
 ### 3. Install the extension
 
