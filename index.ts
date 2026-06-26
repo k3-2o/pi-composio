@@ -65,7 +65,6 @@ class ComposioApiError extends Error {
 
 // ── API helpers ───────────────────────────────────────────────────────
 
-/** Execute a Composio meta tool via the REST execute_meta endpoint. */
 async function executeMetaTool(
   apiKey: string,
   sessionId: string,
@@ -75,10 +74,7 @@ async function executeMetaTool(
   const url = `${COMPOSIO_BASE}/tool_router/session/${sessionId}/execute_meta`;
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-    },
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
     body: JSON.stringify({ slug, arguments: args }),
   });
   if (!res.ok) {
@@ -88,7 +84,6 @@ async function executeMetaTool(
   return res.json();
 }
 
-/** Guard: throw if session not initialized. */
 function guardSession(
   sessionId: string,
   composio: Composio | null,
@@ -100,7 +95,6 @@ function guardSession(
 type TextContent = { type: "text"; text: string };
 type Details = { error?: string };
 
-/** Wrap an async operation with error handling for tool execute. */
 async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<Details>> {
   try {
     const data = await fn();
@@ -128,7 +122,7 @@ async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<D
 
 function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Text {
   const clean = valueText.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 60 ? clean.slice(0, 57) + "..." : clean;
+  const preview = clean.length > 40 ? clean.slice(0, 37) + "..." : clean;
   return new Text(
     theme.fg("toolTitle", theme.bold(toolLabel + " ")) + theme.fg("dim", `"${preview}"`),
     0,
@@ -136,42 +130,33 @@ function renderCallLine(toolLabel: string, valueText: string, theme: Theme): Tex
   );
 }
 
-function renderErrorLine(toolLabel: string, error: string, theme: Theme): Text {
-  const clean = error.replace(/[\n\r\t]+/g, " ");
-  const preview = clean.length > 80 ? clean.slice(0, 77) + "..." : clean;
-  return new Text(
-    theme.fg("error", "\u2717") + " " + theme.fg("dim", toolLabel + " failed — " + preview),
-    0,
-    0,
-  );
+function renderResult(
+  toolLabel: string,
+  result: AgentToolResult<Details>,
+  expanded: boolean,
+  theme: Theme,
+  summary: string,
+): Text {
+  const raw = result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
+  const full = raw.replace(/[\n\r\t]+/g, " ");
+  if (result.details?.error) {
+    const line =
+      theme.fg("error", "\u2717") + " " + theme.fg("dim", toolLabel + " failed — " + full);
+    return new Text(expanded ? line + "\n" + theme.fg("dim", raw) : line, 0, 0);
+  }
+  const line = theme.fg("success", "\u2713") + " " + theme.fg("dim", toolLabel + " " + summary);
+  return new Text(expanded ? line + "\n" + theme.fg("dim", raw) : line, 0, 0);
 }
 
-function renderSuccessLine(toolLabel: string, stats: string, theme: Theme): Text {
-  return new Text(
-    theme.fg("success", "\u2713") + " " + theme.fg("dim", toolLabel + " " + stats),
-    0,
-    0,
-  );
-}
-
-/** Extract a quick summary from a composio_search JSON response. */
 function parseSearchSummary(raw: string): string {
   try {
     const r = JSON.parse(raw);
-    const results = r?.data?.results as
-      | Array<{
-          tool_slug?: string;
-          toolkit_connection_statuses?: Record<string, { has_active_connection?: boolean }>;
-        }>
-      | undefined;
+    const results = r?.data?.results as Array<{ tool_slug?: string }> | undefined;
     if (!results?.length) return "0 results";
-    // Connection status lives at data.toolkit_connection_statuses (array), not per-result
     const statuses: Array<{ toolkit: string; has_active_connection: boolean }> =
       r?.data?.toolkit_connection_statuses ?? [];
     const connectedMap = new Map<string, boolean>();
-    for (const s of statuses) {
-      connectedMap.set(s.toolkit, s.has_active_connection);
-    }
+    for (const s of statuses) connectedMap.set(s.toolkit, s.has_active_connection);
     const parts = [...connectedMap.entries()].map(([tk, on]) => `${tk} ${on ? "on" : "off"}`);
     const status = parts.length > 0 ? ` \u00b7 ${parts.join(", ")}` : "";
     return `${results.length} tool${results.length > 1 ? "s" : ""}${status}`;
@@ -181,19 +166,14 @@ function parseSearchSummary(raw: string): string {
   return "results found";
 }
 
-/** Extract param names from a composio_get_schema JSON response. */
 function parseSchemaSummary(raw: string): string {
   try {
     const r = JSON.parse(raw);
     const tools = r?.data?.tools as
-      | Array<{
-          slug?: string;
-          input_schema?: { properties?: Record<string, unknown> };
-        }>
+      | Array<{ slug?: string; input_schema?: { properties?: Record<string, unknown> } }>
       | undefined;
     const t = tools?.[0];
     if (!t) {
-      // Fallback: get_schema response uses data.tool_schemas not data.tools
       const schemas = r?.data?.tool_schemas as
         | Record<string, { input_schema?: { properties?: Record<string, unknown> } }>
         | undefined;
@@ -206,43 +186,35 @@ function parseSchemaSummary(raw: string): string {
       return "tool not found";
     }
     const params = Object.keys(t.input_schema?.properties ?? {});
-    const label = t.slug ?? "tool";
-    return `${label} \u00b7 ${params.length} params`;
+    return `${t.slug ?? "tool"} \u00b7 ${params.length} params`;
   } catch {
     /* not parseable */
   }
   return "schema loaded";
 }
 
-/** Extract a summary from a sandbox response (workbench or bash). */
 function parseSandboxSummary(raw: string): string {
   try {
     const r = JSON.parse(raw);
     const d = r?.data as
-      | {
-          stdoutLines?: number;
-          stderrLines?: number;
-          stdout?: string;
-          results?: string;
-        }
+      | { stdoutLines?: number; stderrLines?: number; stdout?: string; results?: string }
       | undefined;
     if (!d) return "executed";
-    // Bash: line counts
-    if (d.stdoutLines != null || d.stderrLines != null) {
+    if (d.stdoutLines != null || d.stderrLines != null)
       return `stdout: ${d.stdoutLines ?? 0}, stderr: ${d.stderrLines ?? 0}`;
-    }
-    // Workbench: raw stdout text
     if (d.stdout) {
-      const clean = d.stdout.replace(/[\n\r\t]+/g, " ").trim();
-      const preview = clean.slice(0, 30) || "(empty)";
-      return clean.length > 30 ? `"${preview}…"` : `"${preview}"`;
+      const clean = d.stdout
+        .replace(/[\n\r\t]+/g, " ")
+        .trim()
+        .slice(0, 25);
+      return clean ? `"${clean}"` : "(empty)";
     }
     if (d.results) {
       const clean = String(d.results)
         .replace(/[\n\r\t]+/g, " ")
         .trim()
-        .slice(0, 60);
-      return clean ? `"${clean}..."` : "(empty)";
+        .slice(0, 25);
+      return clean ? `"${clean}"` : "(empty)";
     }
     return "executed";
   } catch {
@@ -251,11 +223,10 @@ function parseSandboxSummary(raw: string): string {
   return "executed";
 }
 
-/** Extract a summary from an execute response. */
 function parseExecuteSummary(raw: string): string {
   try {
     const r = JSON.parse(raw);
-    if (r?.error) return `error: ${String(r.error).slice(0, 80)}`;
+    if (r?.error) return `error: ${String(r.error).slice(0, 60)}`;
     return "executed";
   } catch {
     /* not parseable */
@@ -263,26 +234,7 @@ function parseExecuteSummary(raw: string): string {
   return "executed";
 }
 
-/** Extract the raw text from a result for summary parsing. */
-function rawText(result: AgentToolResult<Details>): string {
-  return result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
-}
-
-/** Unified renderResult: error → ✗/red, success → ✓/green with parsed summary. */
-function renderToolResult(
-  toolLabel: string,
-  result: AgentToolResult<Details>,
-  theme: Theme,
-  parse: (raw: string) => string = () => "done",
-): Text {
-  if (result.details?.error) {
-    return renderErrorLine(toolLabel, result.details.error, theme);
-  }
-  const summary = parse(rawText(result));
-  return renderSuccessLine(toolLabel, summary, theme);
-}
-
-// ── Tool definitions ──────────────────────────────────────────────────
+// ── Tool params ───────────────────────────────────────────────────────
 
 interface ExecuteParams {
   tool: string;
@@ -300,15 +252,12 @@ export default function (pi: ExtensionAPI) {
   let sessionId = "";
   let composio: Composio | null = null;
 
-  // ── Session Init ──────────────────────────────────────────────────
-
   pi.on("session_start", async (_event, ctx) => {
     apiKey = resolveApiKey();
     if (!apiKey) {
       ctx.ui.notify("pi-composio: " + configHint(), "error");
       return;
     }
-
     try {
       composio = new Composio({ apiKey });
       const userId = resolveConfig().userId ?? PI_USER_ID;
@@ -346,10 +295,16 @@ Examples:
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("🔍 Search", result, theme, parseSearchSummary);
+      return renderResult(
+        "🔍 Search",
+        result,
+        expanded,
+        theme,
+        parseSearchSummary(rawText(result)),
+      );
     },
     async execute(
       _toolCallId: string,
@@ -372,13 +327,10 @@ Examples:
     description: `Get the full input schema for one or more tool slugs.
 
 Use after composio_search to see exactly what parameters a tool expects.
-The schema shows required vs optional parameters, types, and descriptions.
-
-Example: ["GMAIL_SEND_EMAIL"] shows { to, subject, body } parameters.`,
+The schema shows required vs optional parameters, types, and descriptions.`,
     parameters: Type.Object({
       tool_slugs: Type.Array(Type.String(), {
-        description:
-          "Tool slugs from composio_search results, e.g. ['GMAIL_SEND_EMAIL'] or ['GITHUB_LIST_ISSUES']",
+        description: "Tool slugs, e.g. ['GMAIL_SEND_EMAIL'] or ['GITHUB_LIST_ISSUES']",
       }),
     }),
     renderCall(args: { tool_slugs: string[] }, theme: Theme) {
@@ -386,10 +338,16 @@ Example: ["GMAIL_SEND_EMAIL"] shows { to, subject, body } parameters.`,
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("📋 Schema", result, theme, parseSchemaSummary);
+      return renderResult(
+        "📋 Schema",
+        result,
+        expanded,
+        theme,
+        parseSchemaSummary(rawText(result)),
+      );
     },
     async execute(
       _toolCallId: string,
@@ -422,9 +380,7 @@ The tool must have been connected via composio_connect first.`,
         description: "Tool slug to execute, e.g. GMAIL_SEND_EMAIL or GITHUB_LIST_ISSUES",
       }),
       arguments: Type.Any({
-        description:
-          "JSON object with the tool's input parameters. " +
-          "Use composio_get_schema to see the expected format.",
+        description: "JSON object with the tool's input parameters.",
       }),
     }),
     renderCall(args: ExecuteParams, theme: Theme) {
@@ -432,10 +388,16 @@ The tool must have been connected via composio_connect first.`,
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("⚡ Execute", result, theme, parseExecuteSummary);
+      return renderResult(
+        "⚡ Execute",
+        result,
+        expanded,
+        theme,
+        parseExecuteSummary(rawText(result)),
+      );
     },
     async execute(_toolCallId: string, params: ExecuteParams): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
@@ -470,10 +432,10 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("🔗 Connect", result, theme);
+      return renderResult("🔗 Connect", result, expanded, theme, "done");
     },
     async execute(
       _toolCallId: string,
@@ -499,7 +461,6 @@ The workbench shares the session's connected accounts, so you can:
 - Process and transform tool responses
 - Run bulk operations across connected apps
 - Chain multiple tool calls together
-- Test API requests before committing to them
 
 Results and variables persist across calls within the same session.`,
     parameters: Type.Object({
@@ -512,10 +473,16 @@ Results and variables persist across calls within the same session.`,
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("🖥️ Workbench", result, theme, parseSandboxSummary);
+      return renderResult(
+        "🖥️ Workbench",
+        result,
+        expanded,
+        theme,
+        parseSandboxSummary(rawText(result)),
+      );
     },
     async execute(
       _toolCallId: string,
@@ -541,7 +508,6 @@ Useful for:
 - File operations and data processing
 - Scripting and automation tasks
 - Running CLI tools available in the sandbox
-- Any command-line task that shouldn't run on your local machine
 
 The sandbox is scoped to the session and persists state between calls.`,
     parameters: Type.Object({
@@ -554,10 +520,10 @@ The sandbox is scoped to the session and persists state between calls.`,
     },
     renderResult(
       result: AgentToolResult<Details>,
-      _options: { expanded: boolean; isPartial: boolean },
+      { expanded }: { expanded: boolean },
       theme: Theme,
     ) {
-      return renderToolResult("💻 Bash", result, theme, parseSandboxSummary);
+      return renderResult("💻 Bash", result, expanded, theme, parseSandboxSummary(rawText(result)));
     },
     async execute(_toolCallId: string, params: CommandParams): Promise<AgentToolResult<Details>> {
       return tryOrError(async () => {
@@ -568,4 +534,8 @@ The sandbox is scoped to the session and persists state between calls.`,
       });
     },
   });
+}
+
+function rawText(result: AgentToolResult<Details>): string {
+  return result.content?.find((c): c is TextContent => c.type === "text")?.text ?? "";
 }
