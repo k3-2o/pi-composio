@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { Theme } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -12,27 +12,22 @@ const PI_USER_ID = "pi-user";
 
 // ── Config resolution ─────────────────────────────────────────────────
 
-const CONFIG_PATHS = [
-  join(homedir(), ".config", "pi-composio", "config.json"),
-  join(homedir(), ".pi-composio.json"),
-];
+const CONFIG_PATH = join(dirname(fileURLToPath(import.meta.url)), "config.json");
 
 interface Config {
   apiKey?: string;
 }
 
 function resolveApiKey(): string {
-  // 1. Check config files (XDG ~/.config/pi-composio/config.json first)
-  for (const configPath of CONFIG_PATHS) {
-    try {
-      if (existsSync(configPath)) {
-        const raw = readFileSync(configPath, "utf-8");
-        const config = JSON.parse(raw) as Config;
-        if (config.apiKey) return config.apiKey;
-      }
-    } catch {
-      // skip unreadable config files
+  // 1. Check config.json in the extension directory
+  try {
+    if (existsSync(CONFIG_PATH)) {
+      const raw = readFileSync(CONFIG_PATH, "utf-8");
+      const config = JSON.parse(raw) as Config;
+      if (config.apiKey) return config.apiKey;
     }
+  } catch {
+    // skip unreadable config
   }
 
   // 2. Fallback to environment variable
@@ -40,7 +35,7 @@ function resolveApiKey(): string {
 }
 
 function configHint(): string {
-  return `Create ${CONFIG_PATHS[0]} with:
+  return `Create ${CONFIG_PATH} with:
 {
   "apiKey": "your-composio-api-key"
 }`;
