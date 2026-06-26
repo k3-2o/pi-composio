@@ -356,7 +356,7 @@ function renderConnectResult(
 function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
   const preview = previewLine(args.code_to_execute, 80);
   return new Text(
-    theme.fg("toolTitle", theme.bold("🖥️ $ ")) + theme.fg("accent", preview),
+    theme.fg("toolTitle", theme.bold("🖥️ ")) + theme.fg("accent", preview),
     0,
     0,
   );
@@ -391,7 +391,7 @@ function renderWorkbenchResult(
 function renderBashCall(args: { command: string }, theme: Theme): Text {
   const preview = previewLine(args.command, 80);
   return new Text(
-    theme.fg("toolTitle", theme.bold("💻 $ ")) + theme.fg("accent", preview),
+    theme.fg("toolTitle", theme.bold("💻 ")) + theme.fg("accent", preview),
     0,
     0,
   );
