@@ -356,7 +356,7 @@ function renderConnectResult(
 function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): Text {
   const preview = previewLine(args.code_to_execute, 60);
   return new Text(
-    theme.fg("toolTitle", theme.bold("🖥️ ")) + theme.fg("accent", preview),
+    theme.fg("toolTitle", theme.bold("🖥 ")) + theme.fg("accent", preview),
     0,
     0,
   );
@@ -611,7 +611,7 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
 
   pi.registerTool({
     name: "composio_workbench",
-    label: "🖥️ composio_workbench",
+    label: "🖥 composio_workbench",
     description: `Run Python code in Composio's sandboxed workbench environment.
 
 The workbench shares the session's connected accounts, so you can:
