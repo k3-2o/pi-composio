@@ -699,9 +699,17 @@ The tool must have been connected via composio_connect first.`,
           if (sig?.aborted) {
             throw new Error("composio_execute: aborted");
           }
+          let args = params.arguments;
+          if (typeof args === "string") {
+            try {
+              args = JSON.parse(args);
+            } catch {
+              // keep as-is, composio will reject
+            }
+          }
           const result = await composio!.tools.executeSessionTool(params.tool, {
             sessionId,
-            arguments: params.arguments as Record<string, unknown>,
+            arguments: args as Record<string, unknown>,
           });
           return result;
         },
