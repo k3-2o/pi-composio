@@ -564,12 +564,7 @@ export default function (pi: ExtensionAPI) {
       sessionId = session.sessionId;
     })().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
-      initError =
-        msg.match(/^\d{3}/)?.[0] ??
-        msg
-          .split(/[\n\r{]/)[0]
-          .trim()
-          .slice(0, 40);
+      initError = msg.match(/^\d{3}/)?.[0] ?? (msg.split(/[\n\r{]/)[0] ?? msg).trim().slice(0, 40);
     });
   });
 
@@ -605,7 +600,8 @@ Examples:
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -648,7 +644,8 @@ The schema shows required vs optional parameters, types, and descriptions.`,
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -698,7 +695,8 @@ The tool must have been connected via composio_connect first.`,
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           if (sig?.aborted) {
             throw new Error("composio_execute: aborted");
           }
@@ -742,7 +740,8 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -789,7 +788,8 @@ Results and variables persist across calls within the same session.`,
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -836,7 +836,8 @@ The sandbox is scoped to the session and persists state between calls.`,
       }
       return tryOrError(
         async (sig) => {
-          await guardSession(sessionId, composio, sessionReady, initError);
+          if (sessionReady) await sessionReady;
+          guardSession(sessionId, composio, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
