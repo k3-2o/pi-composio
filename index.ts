@@ -136,7 +136,9 @@ function guardSession(
   initError?: string | null,
 ): asserts sessionId is string {
   if (!sessionId || !composio) {
-    const hint = initError ? initError : "config missing";
+    const hint =
+      initError ??
+      `composio: no config at ~/.config/pi-composio/config.json — needs {"apiKey":"ak_...","userId":"pg-..."}\n→ read https://github.com/k3-2o/pi-composio/blob/main/README.md`;
     throw new ComposioSessionError(hint);
   }
 }
