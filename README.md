@@ -49,7 +49,7 @@ Need an app you haven't connected yet? Use `composio_connect` in pi — it gener
 
 Go to the [Composio dashboard](https://dashboard.composio.dev) → Sign up → Copy your API key from **Settings**.
 
-They offer a very generous free tier — 20,000 tool calls/month, plenty for personal use.
+They offer a very generous free tier
 
 ### 2. Connect your apps and get your user ID
 
