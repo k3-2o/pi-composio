@@ -541,9 +541,8 @@ export default function (pi: ExtensionAPI) {
       const session = await composio.create(userId);
       sessionId = session.sessionId;
       // silent — no popup on successful init
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error creating session";
-      ctx.ui.notify(`pi-composio: session init failed — ${msg}`, "error");
+    } catch {
+      // silent — tools fail with clear error via guardSession
     }
   });
 
