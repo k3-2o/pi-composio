@@ -557,6 +557,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (!apiKey) return;
     sessionReady = (async () => {
+      process.env.CI = "1"; // suppress composio SDK update notification
       composio = new Composio({ apiKey });
       const userId = resolveUserId();
       const session = await composio.create(userId);
@@ -679,7 +680,7 @@ The tool must have been connected via composio_connect first.`,
         description: "Tool slug to execute, e.g. GMAIL_SEND_EMAIL or GITHUB_LIST_ISSUES",
       }),
       arguments: Type.Any({
-        description: "JSON object with the tool's input parameters.",
+        description: "JSON object or JSON string with the tool's input parameters.",
       }),
     }),
     renderCall: renderExecuteCall,
