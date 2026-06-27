@@ -23,25 +23,47 @@ interface Config {
   userId?: string;
 }
 
+const CONFIG_KEYS = new Set(["apiKey", "userId"]);
+
+function parseConfig(raw: string): Config {
+  const parsed = JSON.parse(raw);
+  if (typeof parsed !== "object" || parsed === null) return {};
+  // --- warn on unknown keys (e.g. "apikey" instead of "apiKey") ---
+  for (const key of Object.keys(parsed)) {
+    if (!CONFIG_KEYS.has(key) && typeof key === "string") {
+      const lower = key.toLowerCase();
+      const suggestion =
+        lower === "apikey" ? "apiKey" : lower === "userid" || lower === "user_id" ? "userId" : "";
+      throw new Error(
+        `unknown config key: "${key}"` + (suggestion ? ` (did you mean "${suggestion}"?)` : ""),
+      );
+    }
+  }
+  return { apiKey: parsed.apiKey, userId: parsed.userId };
+}
+
 function resolveConfig(): Config {
   // --- home-dir configs (outside git, never wiped) ---
   for (const p of HOME_CONFIG_PATHS) {
     try {
       if (existsSync(p)) {
-        return JSON.parse(readFileSync(p, "utf-8")) as Config;
+        return parseConfig(readFileSync(p, "utf-8"));
       }
-    } catch {
-      /* skip unreadable config */
+    } catch (err) {
+      // --- surface schema errors (wrong key names), skip filesystem errors ---
+      if (err instanceof SyntaxError) continue;
+      if (err instanceof Error && err.message.startsWith("unknown config key:")) throw err;
     }
   }
   // --- fallback: extension-dir config (inside git, resets on update) ---
   try {
     const localPath = join(EXTENSION_DIR, "config.json");
     if (existsSync(localPath)) {
-      return JSON.parse(readFileSync(localPath, "utf-8")) as Config;
+      return parseConfig(readFileSync(localPath, "utf-8"));
     }
-  } catch {
-    /* skip unreadable config */
+  } catch (err) {
+    if (err instanceof SyntaxError) return {};
+    if (err instanceof Error && err.message.startsWith("unknown config key:")) throw err;
   }
   return {};
 }
@@ -58,19 +80,11 @@ function resolveUserId(): string {
   return process.env.COMPOSIO_USER_ID ?? PI_USER_ID;
 }
 
-function configHint(): string {
-  return `Create ~/.config/pi-composio/config.json with:
-{
-  "apiKey": "your-composio-api-key",
-  "userId": "your-user-id"
-}`;
-}
-
 // ── Error classes ─────────────────────────────────────────────────────
 
 class ComposioSessionError extends Error {
-  constructor(action: string) {
-    super(`Composio session not initialized. ` + configHint() + ` Action attempted: ${action}`);
+  constructor(hint: string) {
+    super(`composio: ${hint}`);
     this.name = "ComposioSessionError";
   }
 }
@@ -78,10 +92,11 @@ class ComposioSessionError extends Error {
 class ComposioApiError extends Error {
   constructor(
     public status: number,
-    slug: string,
+    _slug: string,
     body: string,
   ) {
-    super(`Composio API error (${status}) on ${slug}: ${body.slice(0, 200)}`);
+    const snippet = body.match(/"message":"([^"]+)/)?.[1]?.slice(0, 40) ?? "";
+    super(`composio: ${status}${snippet ? ` - ${snippet}` : ""}`);
     this.name = "ComposioApiError";
   }
 }
@@ -118,9 +133,12 @@ async function executeMetaTool(
 function guardSession(
   sessionId: string,
   composio: Composio | null,
-  action: string,
+  initError?: string | null,
 ): asserts sessionId is string {
-  if (!sessionId || !composio) throw new ComposioSessionError(action);
+  if (!sessionId || !composio) {
+    const hint = initError ? initError : "config missing";
+    throw new ComposioSessionError(hint);
+  }
 }
 
 type TextContent = { type: "text"; text: string };
@@ -146,13 +164,11 @@ async function tryOrError(
       throw new Error(`${name}: aborted`);
     }
     const message =
-      err instanceof ComposioSessionError
+      err instanceof ComposioSessionError || err instanceof ComposioApiError
         ? err.message
-        : err instanceof ComposioApiError
-          ? `Composio returned an error: ${err.message}\n\nTry reconnecting the app with composio_connect or check your API key.`
-          : err instanceof Error
-            ? err.message
-            : String(err);
+        : err instanceof Error
+          ? err.message
+          : String(err);
     return {
       content: [{ type: "text", text: message }],
       details: { error: message },
@@ -528,19 +544,33 @@ export default function (pi: ExtensionAPI) {
   let apiKey = "";
   let sessionId = "";
   let composio: Composio | null = null;
+  let sessionReady: Promise<void> | null = null;
+  let initError: string | null = null;
 
   pi.on("session_start", async () => {
-    apiKey = resolveApiKey();
-    if (!apiKey) return;
     try {
+      apiKey = resolveApiKey();
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("unknown config key:")) {
+        initError = err.message;
+      }
+      return;
+    }
+    if (!apiKey) return;
+    sessionReady = (async () => {
       composio = new Composio({ apiKey });
       const userId = resolveUserId();
       const session = await composio.create(userId);
       sessionId = session.sessionId;
-      // silent — no popup on successful init
-    } catch {
-      // silent — tools fail with clear error via guardSession
-    }
+    })().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      initError =
+        msg.match(/^\d{3}/)?.[0] ??
+        msg
+          .split(/[\n\r{]/)[0]
+          .trim()
+          .slice(0, 40);
+    });
   });
 
   // ── Tool 1: composio_search ──────────────────────────────────────
@@ -575,7 +605,7 @@ Examples:
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_search");
+          await guardSession(sessionId, composio, sessionReady, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -618,7 +648,7 @@ The schema shows required vs optional parameters, types, and descriptions.`,
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_get_schema");
+          await guardSession(sessionId, composio, sessionReady, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -668,7 +698,7 @@ The tool must have been connected via composio_connect first.`,
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_execute");
+          await guardSession(sessionId, composio, sessionReady, initError);
           if (sig?.aborted) {
             throw new Error("composio_execute: aborted");
           }
@@ -712,7 +742,7 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_connect");
+          await guardSession(sessionId, composio, sessionReady, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -759,7 +789,7 @@ Results and variables persist across calls within the same session.`,
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_workbench");
+          await guardSession(sessionId, composio, sessionReady, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
@@ -806,7 +836,7 @@ The sandbox is scoped to the session and persists state between calls.`,
       }
       return tryOrError(
         async (sig) => {
-          guardSession(sessionId, composio, "composio_bash");
+          await guardSession(sessionId, composio, sessionReady, initError);
           return executeMetaTool(
             apiKey,
             sessionId,
