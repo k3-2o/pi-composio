@@ -49,13 +49,13 @@ Need an app you haven't connected yet? Use `composio_connect` in pi — it gener
 
 Go to the [Composio dashboard](https://dashboard.composio.dev) → Sign up → Copy your API key from **Settings**.
 
-They offer a very generous free tier
+They offer a very generous free tier.
 
 ### 2. Connect your apps and get your user ID
 
 Open [Composio's dashboard](https://dashboard.composio.dev) → **Toolkits** in the sidebar → pick your app → **Setup auth config** → authorize via API key or OAuth.
 
-Once active, go to **Users** in the sidebar → copy your **user ID** (looks like `usr_...`) — you'll need it for `config.json`.
+Once active, go to **Users** in the sidebar → copy your **user ID** (looks like `pg-...`) — you'll need it for config.
 
 ### 3. Install the extension
 
@@ -71,38 +71,18 @@ pi install git:github.com/k3-2o/pi-composio.git
 pi install npm:@k3_2o/pi-composio
 ```
 
-**Manual clone** (if you prefer keeping the source around):
+### 4. Create your config
+
+Drop your key and user ID in the home directory config path:
 
 ```bash
-git clone https://github.com/k3-2o/pi-composio.git ~/.pi/agent/extensions/composio/
-cd ~/.pi/agent/extensions/composio && npm install
+mkdir -p ~/.config/pi-composio
+echo '{"apiKey": "ak_...", "userId": "pg-..."}' > ~/.config/pi-composio/config.json
 ```
 
-### 4. Set your API key
+Config is read from `~/.config/pi-composio/config.json` first, then `~/.pi-composio.json`, then the extension directory — so your credentials survive any `pi update`.
 
-Drop your key and user ID in `config.json` inside the extension directory:
-
-```bash
-echo '{"apiKey": "sk-...", "userId": "usr_..."}' > ~/.pi/agent/extensions/composio/config.json
-```
-
-The user ID is what links your session to the apps you connected on the dashboard — without it, pi-composio won't find your connected accounts.
-
----
-
-## Project structure
-
-```
-composio/            # In ~/.pi/agent/extensions/
-├── index.ts         # 6 tools + session init
-├── package.json     # @composio/core dependency
-├── config.json      # Your API key + user ID (create this)
-└── README.md
-```
-
----
-
-Check [Composio's pricing page](https://composio.dev/pricing) for current plans.
+The user ID links your session to the apps you connected on the dashboard — without it, pi-composio won't find your connected accounts.
 
 ---
 
