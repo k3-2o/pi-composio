@@ -28,7 +28,7 @@
     "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
-    "@composio/core": "^0.13.0"
+    "@composio/core": "0.13.0"
   },
   "pi": {
     "extensions": ["./index.ts"]
