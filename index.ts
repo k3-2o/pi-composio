@@ -557,8 +557,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (!apiKey) return;
     sessionReady = (async () => {
-      process.env.CI = "1"; // suppress composio SDK update notification
-      composio = new Composio({ apiKey });
+      composio = new Composio({ apiKey, disableVersionCheck: true });
       const userId = resolveUserId();
       const session = await composio.create(userId);
       sessionId = session.sessionId;
