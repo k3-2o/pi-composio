@@ -69,13 +69,21 @@ async function executeMetaTool(
   sessionId: string,
   slug: string,
   args: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<unknown> {
+  if (signal?.aborted) {
+    throw new Error(`${slug}: aborted`);
+  }
   const url = `${COMPOSIO_BASE}/tool_router/session/${sessionId}/execute_meta`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey },
     body: JSON.stringify({ slug, arguments: args }),
+    signal,
   });
+  if (signal?.aborted) {
+    throw new Error(`${slug}: aborted`);
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new ComposioApiError(res.status, slug, text);
@@ -94,14 +102,25 @@ function guardSession(
 type TextContent = { type: "text"; text: string };
 type Details = { error?: string };
 
-async function tryOrError(fn: () => Promise<unknown>): Promise<AgentToolResult<Details>> {
+async function tryOrError(
+  fn: (signal?: AbortSignal) => Promise<unknown>,
+  signal?: AbortSignal,
+  toolName?: string,
+): Promise<AgentToolResult<Details>> {
   try {
-    const data = await fn();
+    if (signal?.aborted) {
+      throw new Error(`${toolName ?? "tool"}: aborted`);
+    }
+    const data = await fn(signal);
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       details: {},
     };
   } catch (err) {
+    if (signal?.aborted) {
+      const name = toolName ?? "tool";
+      throw new Error(`${name}: aborted`);
+    }
     const message =
       err instanceof ComposioSessionError
         ? err.message
@@ -249,9 +268,14 @@ function renderSearchCall(args: { queries: string[] }, theme: Theme): Text {
 
 function renderSearchResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text" ? result.content[0].text : "composio_search: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
@@ -280,9 +304,16 @@ function renderSchemaCall(args: { tool_slugs: string[] }, theme: Theme): Text {
 
 function renderSchemaResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text"
+        ? result.content[0].text
+        : "composio_get_schema: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
@@ -307,9 +338,14 @@ function renderExecuteCall(args: { tool: string; arguments: unknown }, theme: Th
 
 function renderExecuteResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text" ? result.content[0].text : "composio_execute: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
@@ -334,9 +370,14 @@ function renderConnectCall(args: { toolkits: string[] }, theme: Theme): Text {
 
 function renderConnectResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text" ? result.content[0].text : "composio_connect: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     return new Text(theme.fg("error", "\u2717 ") + theme.fg("dim", result.details.error), 0, 0);
@@ -366,9 +407,14 @@ function renderWorkbenchCall(args: { code_to_execute: string }, theme: Theme): T
 
 function renderWorkbenchResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text" ? result.content[0].text : "composio_workbench: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     const errPreview =
@@ -398,9 +444,14 @@ function renderBashCall(args: { command: string }, theme: Theme): Text {
 
 function renderBashResult(
   result: AgentToolResult<Details>,
-  { expanded }: { expanded: boolean },
+  { expanded, context }: { expanded: boolean; context?: { isError?: boolean } },
   theme: Theme,
 ): Text {
+  if (context?.isError) {
+    const errText =
+      result.content?.[0]?.type === "text" ? result.content[0].text : "composio_bash: aborted";
+    return new Text(theme.fg("error", `\u2717 ${errText}`), 0, 0);
+  }
   const raw = rawText(result);
   if (result.details?.error) {
     const errPreview =
@@ -497,13 +548,27 @@ Examples:
     async execute(
       _toolCallId: string,
       params: { queries: string[] },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_search");
-        return executeMetaTool(apiKey, sessionId, "COMPOSIO_SEARCH_TOOLS", {
-          queries: params.queries,
-        });
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_search: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_search");
+          return executeMetaTool(
+            apiKey,
+            sessionId,
+            "COMPOSIO_SEARCH_TOOLS",
+            {
+              queries: params.queries,
+            },
+            sig,
+          );
+        },
+        signal,
+        "composio_search",
+      );
     },
   });
 
@@ -526,13 +591,27 @@ The schema shows required vs optional parameters, types, and descriptions.`,
     async execute(
       _toolCallId: string,
       params: { tool_slugs: string[] },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_get_schema");
-        return executeMetaTool(apiKey, sessionId, "COMPOSIO_GET_TOOL_SCHEMAS", {
-          tool_slugs: params.tool_slugs,
-        });
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_get_schema: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_get_schema");
+          return executeMetaTool(
+            apiKey,
+            sessionId,
+            "COMPOSIO_GET_TOOL_SCHEMAS",
+            {
+              tool_slugs: params.tool_slugs,
+            },
+            sig,
+          );
+        },
+        signal,
+        "composio_get_schema",
+      );
     },
   });
 
@@ -562,15 +641,26 @@ The tool must have been connected via composio_connect first.`,
     async execute(
       _toolCallId: string,
       params: { tool: string; arguments: unknown },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_execute");
-        const result = await composio!.tools.executeSessionTool(params.tool, {
-          sessionId,
-          arguments: params.arguments as Record<string, unknown>,
-        });
-        return result;
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_execute: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_execute");
+          if (sig?.aborted) {
+            throw new Error("composio_execute: aborted");
+          }
+          const result = await composio!.tools.executeSessionTool(params.tool, {
+            sessionId,
+            arguments: params.arguments as Record<string, unknown>,
+          });
+          return result;
+        },
+        signal,
+        "composio_execute",
+      );
     },
   });
 
@@ -595,13 +685,27 @@ Common apps: gmail, slack, github, notion, linear, stripe, jira, discord, figma,
     async execute(
       _toolCallId: string,
       params: { toolkits: string[] },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_connect");
-        return executeMetaTool(apiKey, sessionId, "COMPOSIO_MANAGE_CONNECTIONS", {
-          toolkits: params.toolkits,
-        });
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_connect: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_connect");
+          return executeMetaTool(
+            apiKey,
+            sessionId,
+            "COMPOSIO_MANAGE_CONNECTIONS",
+            {
+              toolkits: params.toolkits,
+            },
+            sig,
+          );
+        },
+        signal,
+        "composio_connect",
+      );
     },
   });
 
@@ -628,13 +732,27 @@ Results and variables persist across calls within the same session.`,
     async execute(
       _toolCallId: string,
       params: { code_to_execute: string },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_workbench");
-        return executeMetaTool(apiKey, sessionId, "COMPOSIO_REMOTE_WORKBENCH", {
-          code_to_execute: params.code_to_execute,
-        });
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_workbench: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_workbench");
+          return executeMetaTool(
+            apiKey,
+            sessionId,
+            "COMPOSIO_REMOTE_WORKBENCH",
+            {
+              code_to_execute: params.code_to_execute,
+            },
+            sig,
+          );
+        },
+        signal,
+        "composio_workbench",
+      );
     },
   });
 
@@ -661,13 +779,27 @@ The sandbox is scoped to the session and persists state between calls.`,
     async execute(
       _toolCallId: string,
       params: { command: string },
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<Details>> {
-      return tryOrError(async () => {
-        guardSession(sessionId, composio, "composio_bash");
-        return executeMetaTool(apiKey, sessionId, "COMPOSIO_REMOTE_BASH_TOOL", {
-          command: params.command,
-        });
-      });
+      if (signal?.aborted) {
+        throw new Error("composio_bash: aborted");
+      }
+      return tryOrError(
+        async (sig) => {
+          guardSession(sessionId, composio, "composio_bash");
+          return executeMetaTool(
+            apiKey,
+            sessionId,
+            "COMPOSIO_REMOTE_BASH_TOOL",
+            {
+              command: params.command,
+            },
+            sig,
+          );
+        },
+        signal,
+        "composio_bash",
+      );
     },
   });
 }
