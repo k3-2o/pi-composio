@@ -171,10 +171,7 @@ async function tryOrError(
         : err instanceof Error
           ? err.message
           : String(err);
-    return {
-      content: [{ type: "text", text: message }],
-      details: { error: message },
-    };
+    throw new Error(message);
   }
 }
 
