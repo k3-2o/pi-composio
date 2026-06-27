@@ -529,12 +529,9 @@ export default function (pi: ExtensionAPI) {
   let sessionId = "";
   let composio: Composio | null = null;
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async () => {
     apiKey = resolveApiKey();
-    if (!apiKey) {
-      ctx.ui.notify("pi-composio: " + configHint(), "error");
-      return;
-    }
+    if (!apiKey) return;
     try {
       composio = new Composio({ apiKey });
       const userId = resolveUserId();
