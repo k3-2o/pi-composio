@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import * as os from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, AgentToolResult, Theme } from "@earendil-works/pi-coding-agent";
@@ -12,7 +13,10 @@ const PI_USER_ID = "pi-user";
 // ── Config resolution ─────────────────────────────────────────────────
 
 const EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = join(EXTENSION_DIR, "config.json");
+const HOME_CONFIG_PATHS = [
+  join(os.homedir(), ".config", "pi-composio", "config.json"),
+  join(os.homedir(), ".pi-composio.json"),
+];
 
 interface Config {
   apiKey?: string;
@@ -20,9 +24,21 @@ interface Config {
 }
 
 function resolveConfig(): Config {
+  // --- home-dir configs (outside git, never wiped) ---
+  for (const p of HOME_CONFIG_PATHS) {
+    try {
+      if (existsSync(p)) {
+        return JSON.parse(readFileSync(p, "utf-8")) as Config;
+      }
+    } catch {
+      /* skip unreadable config */
+    }
+  }
+  // --- fallback: extension-dir config (inside git, resets on update) ---
   try {
-    if (existsSync(CONFIG_PATH)) {
-      return JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) as Config;
+    const localPath = join(EXTENSION_DIR, "config.json");
+    if (existsSync(localPath)) {
+      return JSON.parse(readFileSync(localPath, "utf-8")) as Config;
     }
   } catch {
     /* skip unreadable config */
@@ -31,11 +47,19 @@ function resolveConfig(): Config {
 }
 
 function resolveApiKey(): string {
-  return resolveConfig().apiKey ?? process.env.COMPOSIO_API_KEY ?? "";
+  const cfg = resolveConfig();
+  if (cfg.apiKey && cfg.apiKey.length > 0) return cfg.apiKey;
+  return process.env.COMPOSIO_API_KEY ?? "";
+}
+
+function resolveUserId(): string {
+  const cfg = resolveConfig();
+  if (cfg.userId && cfg.userId.length > 0) return cfg.userId;
+  return process.env.COMPOSIO_USER_ID ?? PI_USER_ID;
 }
 
 function configHint(): string {
-  return `Create ${CONFIG_PATH} with:
+  return `Create ~/.config/pi-composio/config.json with:
 {
   "apiKey": "your-composio-api-key",
   "userId": "your-user-id"
@@ -513,7 +537,7 @@ export default function (pi: ExtensionAPI) {
     }
     try {
       composio = new Composio({ apiKey });
-      const userId = resolveConfig().userId ?? PI_USER_ID;
+      const userId = resolveUserId();
       const session = await composio.create(userId);
       sessionId = session.sessionId;
       // silent — no popup on successful init
