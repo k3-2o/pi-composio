@@ -1,7 +1,7 @@
 {
   "name": "@k3_2o/pi-composio",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "Pi extension — Composio integration for 1,000+ app tools",
   "keywords": ["pi-package", "extension", "composio", "tools", "integrations"],
   "license": "MIT",

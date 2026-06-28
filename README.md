@@ -65,7 +65,7 @@ Once active, go to **Users** in the sidebar → copy your **user ID** (looks lik
 pi install git:github.com/k3-2o/pi-composio.git
 ```
 
-**Via npm** (once published):
+**Via npm:**
 
 ```bash
 pi install npm:@k3_2o/pi-composio
