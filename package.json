@@ -1,9 +1,15 @@
 {
   "name": "@k3_2o/pi-composio",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "Pi extension — Composio integration for 1,000+ app tools",
-  "keywords": ["pi-package", "extension", "composio", "tools", "integrations"],
+  "keywords": [
+    "pi-package",
+    "extension",
+    "composio",
+    "tools",
+    "integrations"
+  ],
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -32,6 +38,8 @@
     "zod": "3.25.0"
   },
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
