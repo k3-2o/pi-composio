@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@composio/core": "0.13.0",
-    "zod": "3.25.0"
+    "zod": "4.4.3"
   },
   "pi": {
     "extensions": [
